@@ -157,13 +157,52 @@ func (r *ImageResource) Read(ctx context.Context, req resource.ReadRequest, resp
 	// Log the read operation
 	tflog.Info(ctx, "Reading container registry image", map[string]interface{}{
 		"image_uri": state.ImageURI.ValueString(),
+		"id":        state.ID.ValueString(),
 	})
 
-	// Here we would typically read the image info from the container registry
-	// and update the state with it, but for the skeleton we'll just keep
-	// the state as is.
+	// Try to fetch image information from the container registry using the Registry API
+	// We use the image URI stored in the state file, even when the tag might have changed
+	imageInfo, err := r.getImageInfoFromRegistry(ctx, &state)
+	if err != nil {
+		tflog.Warn(ctx, "Failed to get image info from registry", map[string]interface{}{
+			"image_uri": state.ImageURI.ValueString(),
+			"error":     err.Error(),
+		})
 
-	// Save state
+		// If the image doesn't exist in the registry, mark it as deleted from state
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
+	// If image exists, update label information from the registry
+	if labels, ok := imageInfo["labels"].(map[string]string); ok && len(labels) > 0 {
+		tflog.Debug(ctx, "Updating labels from registry", map[string]interface{}{
+			"image_uri": state.ImageURI.ValueString(),
+			"labels":    labels,
+		})
+
+		// Convert the map[string]string to map[string]attr.Value for Terraform
+		labelValues := make(map[string]attr.Value, len(labels))
+		for k, v := range labels {
+			labelValues[k] = types.StringValue(v)
+		}
+
+		// Create a new labels map
+		labelsMap, diags := types.MapValue(types.StringType, labelValues)
+		if diags.HasError() {
+			resp.Diagnostics.Append(diags...)
+			return
+		}
+
+		// Update the state model with the new labels
+		state.Labels = labelsMap
+
+		tflog.Info(ctx, "Updated image labels from registry", map[string]interface{}{
+			"image_uri": state.ImageURI.ValueString(),
+		})
+	}
+
+	// Save the updated state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -237,4 +276,11 @@ func (r *ImageResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 // ImportState imports an existing resource into Terraform.
 func (r *ImageResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+// getAuthConfig prepares authentication configuration based on the model
+func (r *ImageResource) getAuthConfig(ctx context.Context, model *ImageResourceModel) (interface{}, error) {
+	// Extract authentication details from the model
+	// This is a placeholder for actual implementation
+	return nil, nil
 }
