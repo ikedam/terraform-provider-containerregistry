@@ -32,22 +32,17 @@ func (r *ImageResource) deleteImageFromRegistry(ctx context.Context, model *Imag
 	}
 	defer dockerClient.Close()
 
-	// Authenticate with the registry
-	err = r.authenticateRegistry(ctx, model)
+	// Get authentication configuration
+	authConfig, err := r.getAuthConfig(ctx, model)
 	if err != nil {
-		return fmt.Errorf("failed to authenticate with registry: %w", err)
+		return fmt.Errorf("failed to get authentication configuration: %w", err)
 	}
 
-	return r.deleteFromDockerRegistry(ctx, ref)
+	return r.deleteFromDockerRegistry(ctx, ref, authConfig)
 }
 
 // deleteFromDockerRegistry deletes an image from a generic Docker Registry using the Registry API v2
-func (r *ImageResource) deleteFromDockerRegistry(ctx context.Context, ref reference.Reference) error {
-	// This is a simplified implementation. In a real-world scenario, you would:
-	// 1. Extract registry URL, repository name, and tag/digest
-	// 2. Authenticate with the registry
-	// 3. Send DELETE request to the registry API
-
+func (r *ImageResource) deleteFromDockerRegistry(ctx context.Context, ref reference.Reference, authConfig *AuthConfig) error {
 	// Extract registry, repository, and reference components
 	var registry, repository, tag, digest string
 
@@ -76,9 +71,6 @@ func (r *ImageResource) deleteFromDockerRegistry(ctx context.Context, ref refere
 		"digest":     digest,
 	})
 
-	// In a real implementation, we would get authentication details from model.Auth
-	// and create appropriate authorization headers
-
 	// Create HTTP client
 	client := &http.Client{}
 	var url string
@@ -99,13 +91,23 @@ func (r *ImageResource) deleteFromDockerRegistry(ctx context.Context, ref refere
 		// Add accept header for manifest v2
 		req.Header.Add("Accept", "application/vnd.docker.distribution.manifest.v2+json")
 
-		// Add authorization headers here if needed
+		// Add authorization headers if we have authentication config
+		if authConfig != nil {
+			authHeader := r.GetHTTPAuthHeader(ctx, authConfig)
+			if authHeader != "" {
+				req.Header.Add("Authorization", authHeader)
+			}
+		}
 
 		resp, err := client.Do(req)
 		if err != nil {
 			return fmt.Errorf("failed to get manifest: %w", err)
 		}
 		defer resp.Body.Close()
+
+		if resp.StatusCode == http.StatusUnauthorized {
+			return fmt.Errorf("authentication failed for registry: %s", registry)
+		}
 
 		if resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("failed to get manifest, status: %d", resp.StatusCode)
@@ -142,9 +144,13 @@ func (r *ImageResource) deleteFromDockerRegistry(ctx context.Context, ref refere
 		return fmt.Errorf("failed to create DELETE request: %w", err)
 	}
 
-	// Add authorization headers here if needed
-	// For example:
-	// req.Header.Add("Authorization", "Bearer " + token)
+	// Add authorization headers if we have authentication config
+	if authConfig != nil {
+		authHeader := r.GetHTTPAuthHeader(ctx, authConfig)
+		if authHeader != "" {
+			req.Header.Add("Authorization", authHeader)
+		}
+	}
 
 	// Execute the request
 	resp, err := client.Do(req)
@@ -154,9 +160,19 @@ func (r *ImageResource) deleteFromDockerRegistry(ctx context.Context, ref refere
 	defer resp.Body.Close()
 
 	// Check response
+	if resp.StatusCode == http.StatusUnauthorized {
+		return fmt.Errorf("authentication failed for registry: %s", registry)
+	}
+
 	if resp.StatusCode != http.StatusAccepted && resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to delete image, status: %d", resp.StatusCode)
 	}
+
+	tflog.Info(ctx, "Successfully deleted image from registry", map[string]interface{}{
+		"repository": repository,
+		"tag":        tag,
+		"digest":     digest,
+	})
 
 	return nil
 }

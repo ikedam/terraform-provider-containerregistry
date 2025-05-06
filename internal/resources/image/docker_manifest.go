@@ -81,9 +81,11 @@ func (r *ImageResource) getImageInfoFromRegistry(ctx context.Context, model *Ima
 
 	// Add authorization headers if we have authentication config
 	if authConfig != nil {
-		// In a real implementation, this would use the authConfig to add proper authorization headers
-		// For example:
-		// req.Header.Add("Authorization", "Bearer " + token)
+		// Add Basic authentication header
+		authHeader := r.GetHTTPAuthHeader(ctx, authConfig)
+		if authHeader != "" {
+			req.Header.Add("Authorization", authHeader)
+		}
 	}
 
 	// Execute the request
@@ -96,6 +98,9 @@ func (r *ImageResource) getImageInfoFromRegistry(ctx context.Context, model *Ima
 	// Check for errors
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, fmt.Errorf("image not found: %s", imageURI)
+	}
+	if resp.StatusCode == http.StatusUnauthorized {
+		return nil, fmt.Errorf("authentication failed for registry: %s", registry)
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to get manifest, status: %d", resp.StatusCode)
@@ -131,7 +136,11 @@ func (r *ImageResource) getImageInfoFromRegistry(ctx context.Context, model *Ima
 
 	// Add authorization headers if we have authentication config
 	if authConfig != nil {
-		// Add authorization headers here
+		// Add Basic authentication header
+		authHeader := r.GetHTTPAuthHeader(ctx, authConfig)
+		if authHeader != "" {
+			configReq.Header.Add("Authorization", authHeader)
+		}
 	}
 
 	// Execute the config request

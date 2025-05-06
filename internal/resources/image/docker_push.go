@@ -3,6 +3,7 @@ package image
 import (
 	"context"
 	"fmt"
+	"io"
 
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
@@ -15,38 +16,44 @@ func (r *ImageResource) pushDockerImage(ctx context.Context, dockerClient *clien
 		"image_uri": model.ImageURI.ValueString(),
 	})
 
-	// In reality, this would involve:
-	// 1. Creating authentication information
-	// 2. Pushing the image using the Docker API
+	// Get authentication configuration
+	authConfig, err := r.getAuthConfig(ctx, model)
+	if err != nil {
+		return fmt.Errorf("failed to get authentication configuration: %w", err)
+	}
 
-	// For demonstration, we'll log that the push would happen here
-	tflog.Info(ctx, "Docker image push would happen here", map[string]interface{}{
-		"image_uri": model.ImageURI.ValueString(),
-	})
-
-	// In reality, you would execute the push using the Docker API
-	// For example:
-	/*
-		// Create authentication configuration
-		authConfig := registry.AuthConfig{
-			Username: username,
-			Password: password,
-		}
-		encodedAuth, err := registry.EncodeAuthConfig(authConfig)
+	// Create encoded authentication string for Docker API
+	var encodedAuth string
+	if authConfig != nil {
+		encodedAuth, err = r.GetEncodedAuthConfig(ctx, authConfig)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to encode auth config: %w", err)
 		}
-	*/
+		tflog.Debug(ctx, "Using authentication for pushing image")
+	} else {
+		tflog.Debug(ctx, "No authentication used for pushing image")
+	}
 
 	// Push the image
 	pushOptions := image.PushOptions{
-		// RegistryAuth: encodedAuth,
+		RegistryAuth: encodedAuth,
 	}
+
 	pushResponse, err := dockerClient.ImagePush(ctx, model.ImageURI.ValueString(), pushOptions)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to push image: %w", err)
 	}
 	defer pushResponse.Close()
+
+	// Read the response to ensure the push completes
+	// Docker API sends progress as a JSON stream
+	if _, err := io.ReadAll(pushResponse); err != nil {
+		return fmt.Errorf("error reading push response: %w", err)
+	}
+
+	tflog.Info(ctx, "Successfully pushed Docker image to registry", map[string]interface{}{
+		"image_uri": model.ImageURI.ValueString(),
+	})
 
 	return nil
 }
@@ -74,12 +81,6 @@ func (r *ImageResource) buildAndPushImage(ctx context.Context, model *ImageResou
 	err = r.buildDockerImage(ctx, dockerClient, buildSpec, model)
 	if err != nil {
 		return fmt.Errorf("failed to build Docker image: %w", err)
-	}
-
-	// Perform authentication with the container registry
-	err = r.authenticateRegistry(ctx, model)
-	if err != nil {
-		return fmt.Errorf("failed to authenticate with registry: %w", err)
 	}
 
 	// Push the image to the registry
