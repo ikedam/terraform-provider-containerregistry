@@ -11,6 +11,7 @@ import (
 	secretmanagerpb "cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ecr"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/docker/docker/api/types/registry"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
@@ -44,6 +45,11 @@ func (r *ImageResource) getAuthConfig(ctx context.Context, model *ImageResourceM
 	// Check for username/password authentication
 	if usernamePassMap, ok := authMap["username_password"].(map[string]interface{}); ok {
 		return r.getUsernamePasswordAuth(ctx, usernamePassMap)
+	}
+
+	// Check for AWS ECR authentication
+	if awsEcrMap, ok := authMap["aws_ecr"].(map[string]interface{}); ok {
+		return r.getAWSECRAuth(ctx, awsEcrMap, model.ImageURI.ValueString())
 	}
 
 	// No authentication method found
@@ -233,4 +239,76 @@ func (r *ImageResource) GetHTTPAuthHeader(ctx context.Context, authConfig *AuthC
 	// For basic auth, create a Basic auth header
 	auth := fmt.Sprintf("%s:%s", authConfig.Username, authConfig.Password)
 	return "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
+}
+
+// getAWSECRAuth retrieves an authentication token from AWS ECR
+func (r *ImageResource) getAWSECRAuth(ctx context.Context, authMap map[string]interface{}, imageURI string) (*AuthConfig, error) {
+	tflog.Debug(ctx, "Getting AWS ECR authentication token", map[string]interface{}{
+		"image_uri": imageURI,
+	})
+
+	// Get the profile name if specified
+	var profile string
+	if profileVal, ok := authMap["profile"].(string); ok && profileVal != "" {
+		profile = profileVal
+	}
+
+	// Extract registry domain from image URI
+	// Format: registry-domain/repository:tag
+	registryDomain := strings.Split(imageURI, "/")[0]
+	tflog.Debug(ctx, "Extracted registry domain", map[string]interface{}{
+		"registry_domain": registryDomain,
+	})
+
+	// Load AWS SDK configuration
+	var cfg aws.Config
+	var err error
+
+	if profile != "" {
+		// Use specified profile
+		tflog.Debug(ctx, "Loading AWS config with profile", map[string]interface{}{
+			"profile": profile,
+		})
+		cfg, err = config.LoadDefaultConfig(ctx, config.WithSharedConfigProfile(profile))
+	} else {
+		// Use default profile
+		tflog.Debug(ctx, "Loading AWS config with default profile")
+		cfg, err = config.LoadDefaultConfig(ctx)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("unable to load AWS SDK config: %w", err)
+	}
+
+	// Create an ECR client
+	client := ecr.NewFromConfig(cfg)
+
+	// Call the ECR API to get an authorization token
+	output, err := client.GetAuthorizationToken(ctx, &ecr.GetAuthorizationTokenInput{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get ECR authorization token: %w", err)
+	}
+
+	// Check if we got any auth data
+	if len(output.AuthorizationData) == 0 {
+		return nil, fmt.Errorf("no authorization data received from ECR")
+	}
+
+	// Get the first auth data (we only need one)
+	authData := output.AuthorizationData[0]
+
+	// Decode the authorization token (which is in base64 format)
+	decodedToken, err := base64.StdEncoding.DecodeString(*authData.AuthorizationToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode ECR authorization token: %w", err)
+	}
+
+	// The token is in the format "username:password"
+	authConfig, err := r.parseCredentialsString(ctx, string(decodedToken))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse ECR credentials: %w", err)
+	}
+
+	tflog.Debug(ctx, "Successfully retrieved ECR authentication token")
+	return authConfig, nil
 }

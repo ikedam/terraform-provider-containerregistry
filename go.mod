@@ -6,6 +6,7 @@ require (
 	cloud.google.com/go/secretmanager v1.14.7
 	github.com/aws/aws-sdk-go-v2 v1.36.3
 	github.com/aws/aws-sdk-go-v2/config v1.29.14
+	github.com/aws/aws-sdk-go-v2/service/ecr v1.44.0
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.35.4
 	github.com/compose-spec/compose-go v1.20.2
 	github.com/distribution/reference v0.5.0
