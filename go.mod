@@ -4,6 +4,7 @@ go 1.23.4
 
 require (
 	github.com/compose-spec/compose-go v1.20.2
+	github.com/distribution/reference v0.5.0
 	github.com/docker/docker v28.1.1+incompatible
 	github.com/hashicorp/terraform-plugin-framework v1.14.1
 	github.com/hashicorp/terraform-plugin-log v0.9.0
@@ -12,7 +13,6 @@ require (
 require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/containerd/log v0.1.0 // indirect
-	github.com/distribution/reference v0.5.0 // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/fatih/color v1.13.0 // indirect

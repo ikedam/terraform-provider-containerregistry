@@ -212,8 +212,23 @@ func (r *ImageResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 
 	// Check if we should actually delete the image
 	if state.DeleteImage.ValueBool() {
-		// Here we would typically delete the image from the registry
-		tflog.Info(ctx, "Would delete the image from registry (if implemented)")
+		// Delete the image from the registry
+		tflog.Info(ctx, "Deleting the image from registry", map[string]interface{}{
+			"image_uri": state.ImageURI.ValueString(),
+		})
+
+		err := r.deleteImageFromRegistry(ctx, &state)
+		if err != nil {
+			resp.Diagnostics.AddWarning(
+				"Error deleting image from registry",
+				fmt.Sprintf("Could not delete image %s: %s", state.ImageURI.ValueString(), err),
+			)
+			// Continue with resource deletion even if image deletion fails
+		} else {
+			tflog.Info(ctx, "Successfully deleted image from registry", map[string]interface{}{
+				"image_uri": state.ImageURI.ValueString(),
+			})
+		}
 	}
 
 	// No need to update the state as it will be removed by Terraform after this function returns
