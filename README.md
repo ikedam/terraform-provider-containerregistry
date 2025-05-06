@@ -101,12 +101,22 @@ resource "containerregistry_image" "app" {
 
 Terraform plugin framework を使用して実装しています: https://developer.hashicorp.com/terraform/plugin/framework
 
+* リソース ID は UUID で作成します。
+    * イメージタグの変更を想定しているため、イメージ URI を ID として使用できないため。
+
 おおよそ以下の動作になります:
 
 * Read()
     * 指定のコンテナーレジストリー/リポジトリーからイメージの情報を取得して反映。
+    * このときのイメージ URI には、ステートファイルに保存されている URI で取得する。
+        * イメージタグの変更時にも一旦古いイメージ情報を取得することになる。
+    * このときの取得は Registry API を使用して docker pull は行わない。
 * Create() / Update()
     * イメージを作成して push します。
     * イメージの作成処理は docker compose をライブラリーとして使用します。
 * Delete()
     * delete_image が指定されている場合、イメージの削除を行います。
+* Import()
+    * インポートの ID としてはイメージ URI を指定する。
+    * 実際にはイメージ URI をリソースの ID としては使用せず、ID を UUID から新規作成、および URI からイメージ情報を取り込む。
+
