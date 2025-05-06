@@ -16,6 +16,7 @@ import (
 	"github.com/docker/docker/api/types/registry"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
 )
 
@@ -50,6 +51,11 @@ func (r *ImageResource) getAuthConfig(ctx context.Context, model *ImageResourceM
 	// Check for AWS ECR authentication
 	if awsEcrMap, ok := authMap["aws_ecr"].(map[string]interface{}); ok {
 		return r.getAWSECRAuth(ctx, awsEcrMap, model.ImageURI.ValueString())
+	}
+
+	// Check for Google Cloud Artifact Registry authentication
+	if googleArtifactRegistryMap, ok := authMap["google_artifact_registry"].(map[string]interface{}); ok {
+		return r.getGoogleArtifactRegistryAuth(ctx, googleArtifactRegistryMap, model.ImageURI.ValueString())
 	}
 
 	// No authentication method found
@@ -310,5 +316,38 @@ func (r *ImageResource) getAWSECRAuth(ctx context.Context, authMap map[string]in
 	}
 
 	tflog.Debug(ctx, "Successfully retrieved ECR authentication token")
+	return authConfig, nil
+}
+
+// getGoogleArtifactRegistryAuth retrieves an authentication token for Google Cloud Artifact Registry
+func (r *ImageResource) getGoogleArtifactRegistryAuth(ctx context.Context, authMap map[string]interface{}, imageURI string) (*AuthConfig, error) {
+	tflog.Debug(ctx, "Getting Google Cloud Artifact Registry authentication token", map[string]interface{}{
+		"image_uri": imageURI,
+	})
+
+	tflog.Debug(ctx, "Using application default credentials")
+
+	// Create the token source from application default credentials
+	creds, err := google.FindDefaultCredentials(ctx, "https://www.googleapis.com/auth/cloud-platform")
+	if err != nil {
+		return nil, fmt.Errorf("failed to find default credentials: %w", err)
+	}
+	tokenSource := creds.TokenSource
+
+	// Get the token
+	token, err := tokenSource.Token()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get token: %w", err)
+	}
+
+	// Use the access token for authentication
+	// For Artifact Registry, we use "oauth2accesstoken" as username and the access token as password
+	// as per https://cloud.google.com/artifact-registry/docs/docker/authentication#token
+	authConfig := &AuthConfig{
+		Username: "oauth2accesstoken",
+		Password: token.AccessToken,
+	}
+
+	tflog.Debug(ctx, "Successfully retrieved Google Cloud Artifact Registry authentication token")
 	return authConfig, nil
 }

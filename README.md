@@ -68,10 +68,7 @@ resource "containerregistry_image" "app" {
     }
 
     # Google Cloud Artifact Registry に対する認証
-    google_artifact_registry = {
-      # サービスアカウントを使った認証の場合
-      service_account = "your_sa@PROJECT.iam.gserviceaccount.com"
-    }
+    google_artifact_registry = {}
 
     # ユーザー名/パスワードによる認証
     username_password = {
@@ -94,8 +91,6 @@ resource "containerregistry_image" "app" {
 * ユーザー名、パスワードによる認証
 * ECR レジストリーの認証
 * Google Cloud の Artifact Registry の認証
-    * ユーザー認証を使った認証
-    * サービスアカウントによる認証
 
 ## 処理の概要
 

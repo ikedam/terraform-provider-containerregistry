@@ -86,9 +86,7 @@ func (r *ImageResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 						},
 					},
 					"google_artifact_registry": types.ObjectType{
-						AttrTypes: map[string]attr.Type{
-							"service_account": types.StringType,
-						},
+						AttrTypes: map[string]attr.Type{},
 					},
 					"username_password": types.ObjectType{
 						AttrTypes: map[string]attr.Type{
