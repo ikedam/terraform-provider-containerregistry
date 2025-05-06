@@ -9,21 +9,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-// authenticateRegistry authenticates with the container registry
-func (r *ImageResource) authenticateRegistry(ctx context.Context, model *ImageResourceModel) error {
-	tflog.Info(ctx, "Authenticating with container registry", map[string]interface{}{
-		"image_uri": model.ImageURI.ValueString(),
-	})
-
-	// TODO: Implement authentication with container registry
-	// This is a placeholder where authentication would be implemented
-	// Authentication would depend on the registry type (Docker Hub, ECR, GAR, etc.)
-	// and the authentication method provided in the model.Auth field
-
-	// For now, we'll assume authentication is successful
-	return nil
-}
-
 // pushDockerImage pushes a Docker image to the registry
 func (r *ImageResource) pushDockerImage(ctx context.Context, dockerClient *client.Client, model *ImageResourceModel) error {
 	tflog.Info(ctx, "Pushing Docker image to registry", map[string]interface{}{

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -275,12 +276,44 @@ func (r *ImageResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 
 // ImportState imports an existing resource into Terraform.
 func (r *ImageResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	// Log the import operation
+	tflog.Info(ctx, "Importing container registry image", map[string]interface{}{
+		"image_uri": req.ID,
+	})
+
+	// Set the image_uri attribute from the provided ID (which is expected to be the image URI)
+	resp.Diagnostics.Append(resp.State.SetAttribute(
+		ctx,
+		path.Root("image_uri"),
+		req.ID,
+	)...)
+
+	// Generate a new UUID for the resource ID
+	// This is needed because we don't use image URI as the resource ID since the tag might change
+	id := generateUUID()
+	resp.Diagnostics.Append(resp.State.SetAttribute(
+		ctx,
+		path.Root("id"),
+		id,
+	)...)
+
+	// Set default values for optional attributes
+	resp.Diagnostics.Append(resp.State.SetAttribute(
+		ctx,
+		path.Root("delete_image"),
+		false,
+	)...)
+
+	// The remaining attributes like build, labels, triggers, and auth
+	// will need to be set by the user after import
+	tflog.Info(ctx, "Successfully imported image, additional configuration required", map[string]interface{}{
+		"image_uri": req.ID,
+		"id":        id,
+	})
 }
 
-// getAuthConfig prepares authentication configuration based on the model
-func (r *ImageResource) getAuthConfig(ctx context.Context, model *ImageResourceModel) (interface{}, error) {
-	// Extract authentication details from the model
-	// This is a placeholder for actual implementation
-	return nil, nil
+// generateUUID generates a new UUID for resource identification
+func generateUUID() string {
+	// Import package in the top of the file: "github.com/google/uuid"
+	return uuid.New().String()
 }
