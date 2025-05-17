@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/compose-spec/compose-go/loader"
 	composetypes "github.com/compose-spec/compose-go/types"
 	dockertypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
@@ -19,7 +18,7 @@ import (
 )
 
 // parseBuildSpec parses the build specification from the model
-func (r *ImageResource) parseBuildSpec(ctx context.Context, model *ImageResourceModel) (*composetypes.Project, error) {
+func (r *ImageResource) parseBuildSpec(ctx context.Context, model *ImageResourceModel) (*composetypes.BuildConfig, error) {
 	// The build attribute contains a Docker Compose compatible build specification in JSON format
 	buildJSON := model.Build.ValueString()
 	if buildJSON == "" {
@@ -27,90 +26,30 @@ func (r *ImageResource) parseBuildSpec(ctx context.Context, model *ImageResource
 	}
 
 	// Parse the JSON into a map
-	var buildConfig map[string]interface{}
+	var buildConfig composetypes.BuildConfig
 	err := json.Unmarshal([]byte(buildJSON), &buildConfig)
 	if err != nil {
 		return nil, fmt.Errorf("invalid JSON in build specification: %w", err)
 	}
 
-	// Create a temporary directory for the Docker Compose file
-	tempDir, err := os.MkdirTemp("", "tf-docker-build-*")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create temporary directory: %w", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	// Create a simple Docker Compose project with the build specification
-	composeConfig := map[string]interface{}{
-		"version": "3",
-		"services": map[string]interface{}{
-			"app": map[string]interface{}{
-				"build": buildConfig,
-				"image": model.ImageURI.ValueString(),
-			},
-		},
-	}
-
-	// Convert to JSON
-	composeJSON, err := json.Marshal(composeConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal compose config: %w", err)
-	}
-
-	tflog.Debug(ctx, "Created Docker Compose configuration", map[string]interface{}{
-		"compose_json": string(composeJSON),
-	})
-
-	// Create a temporary file for the Docker Compose configuration
-	composePath := fmt.Sprintf("%s/docker-compose.json", tempDir)
-	err = os.WriteFile(composePath, composeJSON, 0644)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write Docker Compose file: %w", err)
-	}
-
-	// Load the Docker Compose project
-	project, err := loader.Load(
-		composetypes.ConfigDetails{
-			ConfigFiles: []composetypes.ConfigFile{
-				{
-					Filename: composePath,
-					Content:  composeJSON,
-				},
-			},
-			WorkingDir: tempDir,
-		},
-		func(o *loader.Options) {
-			o.SetProjectName("dummy", true)
-		},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load Docker Compose project: %w", err)
-	}
-
-	return project, nil
+	return &buildConfig, nil
 }
 
 // buildDockerImage builds a Docker image using Docker Compose
-func (r *ImageResource) buildDockerImage(ctx context.Context, dockerClient *client.Client, project *composetypes.Project, model *ImageResourceModel) error {
+func (r *ImageResource) buildDockerImage(ctx context.Context, dockerClient *client.Client, buildConfig *composetypes.BuildConfig, model *ImageResourceModel) error {
 	tflog.Info(ctx, "Building Docker image", map[string]interface{}{
 		"image_uri": model.ImageURI.ValueString(),
 	})
 
-	// Create a service to build
-	service, err := project.GetService("app")
-	if err != nil {
-		return fmt.Errorf("failed to get service from Docker Compose project: %w", err)
-	}
-
 	// Get build context directory
-	buildContextDir := service.Build.Context
+	buildContextDir := buildConfig.Context
 	if buildContextDir == "" {
 		return fmt.Errorf("build context not specified in build configuration")
 	}
 
 	tflog.Debug(ctx, "Building with context", map[string]interface{}{
 		"context":    buildContextDir,
-		"dockerfile": service.Build.Dockerfile,
+		"dockerfile": buildConfig.Dockerfile,
 	})
 
 	// Prepare tarball with build context
@@ -122,7 +61,7 @@ func (r *ImageResource) buildDockerImage(ctx context.Context, dockerClient *clie
 
 	// Create build arguments
 	buildArgs := make(map[string]*string)
-	for k, v := range service.Build.Args {
+	for k, v := range buildConfig.Args {
 		value := v
 		buildArgs[k] = value
 	}
@@ -130,7 +69,7 @@ func (r *ImageResource) buildDockerImage(ctx context.Context, dockerClient *clie
 	// Create build options
 	buildOptions := dockertypes.ImageBuildOptions{
 		Tags:        []string{model.ImageURI.ValueString()},
-		Dockerfile:  service.Build.Dockerfile,
+		Dockerfile:  buildConfig.Dockerfile,
 		BuildArgs:   buildArgs,
 		Remove:      true,
 		ForceRemove: true,
