@@ -12,7 +12,7 @@ services:
       - CGO_ENABLED
     entrypoint: ["go"]
   terraform-registry-builder:
-    image: ghcr.io/ikedam/terraform-registry-builder:0.2.0
+    image: ghcr.io/ikedam/terraform-registry-builder:0.2.1
     profiles: [dummy]
     network_mode: bridge
     volumes:
