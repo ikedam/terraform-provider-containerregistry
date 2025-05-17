@@ -180,19 +180,26 @@ func (r *ImageResource) getImageInfoFromRegistry(ctx context.Context, model *Ima
 		labels = configBlob.Config.Labels
 	}
 
+	// Get the manifest digest from the Docker-Content-Digest header
+	// This is the digest that should be used with docker pull image@sha256:digest
+	manifestDigest := resp.Header.Get("Docker-Content-Digest")
+
 	// Create the result map with the image information
 	imageInfo := map[string]interface{}{
-		"exists":       true,
-		"labels":       labels,
-		"created":      configBlob.Created,
-		"digest":       manifest.Config.Digest,
-		"architecture": configBlob.Architecture,
-		"os":           configBlob.OS,
+		"exists":          true,
+		"labels":          labels,
+		"created":         configBlob.Created,
+		"digest":          manifest.Config.Digest,
+		"manifest_digest": manifestDigest,
+		"architecture":    configBlob.Architecture,
+		"os":              configBlob.OS,
 	}
 
 	tflog.Debug(ctx, "Retrieved image info from registry", map[string]interface{}{
-		"image_uri": model.ImageURI.ValueString(),
-		"labels":    labels,
+		"image_uri":       model.ImageURI.ValueString(),
+		"labels":          labels,
+		"config_digest":   manifest.Config.Digest,
+		"manifest_digest": manifestDigest,
 	})
 
 	return imageInfo, nil

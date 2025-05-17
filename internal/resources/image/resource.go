@@ -225,12 +225,19 @@ func (r *ImageResource) Read(ctx context.Context, req resource.ReadRequest, resp
 		})
 	}
 
-	// Update the SHA256 digest
-	if digest, ok := imageInfo["digest"].(string); ok && digest != "" {
-		state.SHA256Digest = types.StringValue(digest)
-		tflog.Debug(ctx, "Updated image SHA256 digest from registry", map[string]interface{}{
+	// Update the SHA256 digest - prioritize the manifest digest which is used for docker pull
+	if manifestDigest, ok := imageInfo["manifest_digest"].(string); ok && manifestDigest != "" {
+		state.SHA256Digest = types.StringValue(manifestDigest)
+		tflog.Debug(ctx, "Updated image manifest SHA256 digest from registry", map[string]interface{}{
 			"image_uri": state.ImageURI.ValueString(),
-			"digest":    digest,
+			"digest":    manifestDigest,
+		})
+	} else if configDigest, ok := imageInfo["digest"].(string); ok && configDigest != "" {
+		// Fall back to config digest if manifest digest is not available
+		state.SHA256Digest = types.StringValue(configDigest)
+		tflog.Debug(ctx, "Updated image config SHA256 digest from registry (fallback)", map[string]interface{}{
+			"image_uri": state.ImageURI.ValueString(),
+			"digest":    configDigest,
 		})
 	}
 
