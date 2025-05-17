@@ -69,15 +69,20 @@ func (r *ImageResource) parseBuildSpec(ctx context.Context, model *ImageResource
 	}
 
 	// Load the Docker Compose project
-	project, err := loader.Load(composetypes.ConfigDetails{
-		ConfigFiles: []composetypes.ConfigFile{
-			{
-				Filename: composePath,
-				Content:  composeJSON,
+	project, err := loader.Load(
+		composetypes.ConfigDetails{
+			ConfigFiles: []composetypes.ConfigFile{
+				{
+					Filename: composePath,
+					Content:  composeJSON,
+				},
 			},
+			WorkingDir: tempDir,
 		},
-		WorkingDir: tempDir,
-	})
+		func(o *loader.Options) {
+			o.SetProjectName("dummy", true)
+		},
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load Docker Compose project: %w", err)
 	}
