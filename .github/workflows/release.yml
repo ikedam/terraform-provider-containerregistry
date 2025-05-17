@@ -67,7 +67,7 @@ jobs:
           mkdir -p pages/providers/ikedam
 
           # Build registry using terraform-registry-builder
-          docker compose run --rm terraform-registry-builder ./build .pages/providers/ikedam
+          docker compose run --rm terraform-registry-builder ./build ./pages/providers/ikedam
 
       - name: Commit and push gh-pages
         run: |
