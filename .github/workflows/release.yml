@@ -36,7 +36,8 @@ jobs:
 
       - name: Build for all platforms
         run: |
-          platforms=("linux_amd64" "linux_arm64" "windows_amd64" "windows_arm64" "darwin_amd64" "darwin_arm64")
+          # platforms=("linux_amd64" "linux_arm64" "windows_amd64" "windows_arm64" "darwin_amd64" "darwin_arm64")
+          platforms=("linux_amd64" "linux_arm64")
 
           for platform in "${platforms[@]}"; do
             os=$(echo $platform | cut -d '_' -f1)
