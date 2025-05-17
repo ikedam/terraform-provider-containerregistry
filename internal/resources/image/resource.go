@@ -98,6 +98,10 @@ func (r *ImageResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 					},
 				},
 			},
+			"sha256_digest": schema.StringAttribute{
+				MarkdownDescription: "SHA256 digest of the image in the registry",
+				Computed:            true,
+			},
 		},
 	}
 }
@@ -198,6 +202,15 @@ func (r *ImageResource) Read(ctx context.Context, req resource.ReadRequest, resp
 
 		tflog.Info(ctx, "Updated image labels from registry", map[string]interface{}{
 			"image_uri": state.ImageURI.ValueString(),
+		})
+	}
+
+	// Update the SHA256 digest
+	if digest, ok := imageInfo["digest"].(string); ok && digest != "" {
+		state.SHA256Digest = types.StringValue(digest)
+		tflog.Debug(ctx, "Updated image SHA256 digest from registry", map[string]interface{}{
+			"image_uri": state.ImageURI.ValueString(),
+			"digest":    digest,
 		})
 	}
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
@@ -87,6 +88,25 @@ func (r *ImageResource) buildAndPushImage(ctx context.Context, model *ImageResou
 	err = r.pushDockerImage(ctx, dockerClient, model)
 	if err != nil {
 		return fmt.Errorf("failed to push Docker image: %w", err)
+	}
+
+	// Get the image digest after pushing
+	imageInfo, err := r.getImageInfoFromRegistry(ctx, model)
+	if err != nil {
+		tflog.Warn(ctx, "Failed to get image digest after push", map[string]interface{}{
+			"image_uri": model.ImageURI.ValueString(),
+			"error":     err.Error(),
+		})
+		// Don't return error - we can still continue without the digest
+	} else {
+		// Update the model with the SHA256 digest
+		if digest, ok := imageInfo["digest"].(string); ok && digest != "" {
+			model.SHA256Digest = types.StringValue(digest)
+			tflog.Debug(ctx, "Updated image SHA256 digest", map[string]interface{}{
+				"image_uri": model.ImageURI.ValueString(),
+				"digest":    digest,
+			})
+		}
 	}
 
 	return nil
