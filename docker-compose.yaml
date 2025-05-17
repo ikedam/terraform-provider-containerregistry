@@ -1,0 +1,21 @@
+services:
+  go:
+    image: golang:1.23.4-bookworm
+    profiles: [dummy]
+    network_mode: bridge
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    environment:
+      - GOOS
+      - GOARCH
+      - CGO_ENABLED
+  terraform-registry-builder:
+    image: ghcr.io/ikedam/terraform-registry-builder:0.2.0
+    profiles: [dummy]
+    network_mode: bridge
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    environment:
+      - TFREGBUILDER_GPG_KEY
