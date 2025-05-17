@@ -46,7 +46,8 @@ jobs:
               output_name="${output_name}.exe"
             fi
 
-            GOOS=$os GOARCH=$arch docker compose run --rm go build -o "build/${output_name}" .
+            # Set -buildvcs=false to avoid `error obtaining VCS status: exit status 128`
+            GOOS=$os GOARCH=$arch docker compose run --rm go build -buildvcs=false -o "build/${output_name}" .
           done
 
       - name: Checkout gh-pages branch
