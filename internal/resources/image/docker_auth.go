@@ -14,7 +14,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/docker/docker/api/types/registry"
-	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
@@ -31,31 +30,55 @@ type AuthConfig struct {
 // based on the authentication options provided in the model
 func (r *ImageResource) getAuthConfig(ctx context.Context, model *ImageResourceModel) (*AuthConfig, error) {
 	// If no authentication is provided, return nil
-	if model.Auth.IsNull() || model.Auth.IsUnknown() {
+	if model.Auth == nil {
 		tflog.Debug(ctx, "No authentication configuration provided")
 		return nil, nil
 	}
 
-	// Get the auth object from the model
-	authMap := make(map[string]interface{})
-	diags := model.Auth.As(ctx, &authMap, basetypes.ObjectAsOptions{})
-	if diags.HasError() {
-		return nil, fmt.Errorf("failed to parse auth configuration: %v", diags)
-	}
-
 	// Check for username/password authentication
-	if usernamePassMap, ok := authMap["username_password"].(map[string]interface{}); ok {
-		return r.getUsernamePasswordAuth(ctx, usernamePassMap)
+	if model.Auth.UsernamePassword != nil {
+		authMap := make(map[string]interface{})
+
+		// Extract username if it exists
+		if !model.Auth.UsernamePassword.Username.IsNull() && !model.Auth.UsernamePassword.Username.IsUnknown() {
+			authMap["username"] = model.Auth.UsernamePassword.Username.ValueString()
+		}
+
+		// Extract password if it exists
+		if !model.Auth.UsernamePassword.Password.IsNull() && !model.Auth.UsernamePassword.Password.IsUnknown() {
+			authMap["password"] = model.Auth.UsernamePassword.Password.ValueString()
+		}
+
+		// Extract AWS Secrets Manager ARN if it exists
+		if !model.Auth.UsernamePassword.AwsSecretsManager.IsNull() && !model.Auth.UsernamePassword.AwsSecretsManager.IsUnknown() {
+			authMap["aws_secrets_manager"] = model.Auth.UsernamePassword.AwsSecretsManager.ValueString()
+		}
+
+		// Extract Google Secret Manager resource if it exists
+		if !model.Auth.UsernamePassword.GoogleSecretManager.IsNull() && !model.Auth.UsernamePassword.GoogleSecretManager.IsUnknown() {
+			authMap["google_secret_manager"] = model.Auth.UsernamePassword.GoogleSecretManager.ValueString()
+		}
+
+		return r.getUsernamePasswordAuth(ctx, authMap)
 	}
 
 	// Check for AWS ECR authentication
-	if awsEcrMap, ok := authMap["aws_ecr"].(map[string]interface{}); ok {
-		return r.getAWSECRAuth(ctx, awsEcrMap, model.ImageURI.ValueString())
+	if model.Auth.AWSECR != nil {
+		authMap := make(map[string]interface{})
+
+		// Extract profile if it exists
+		if !model.Auth.AWSECR.Profile.IsNull() && !model.Auth.AWSECR.Profile.IsUnknown() {
+			authMap["profile"] = model.Auth.AWSECR.Profile.ValueString()
+		}
+
+		return r.getAWSECRAuth(ctx, authMap, model.ImageURI.ValueString())
 	}
 
 	// Check for Google Cloud Artifact Registry authentication
-	if googleArtifactRegistryMap, ok := authMap["google_artifact_registry"].(map[string]interface{}); ok {
-		return r.getGoogleArtifactRegistryAuth(ctx, googleArtifactRegistryMap, model.ImageURI.ValueString())
+	if model.Auth.GoogleArtifactRegistry != nil {
+		// No additional fields needed for Google Artifact Registry
+		authMap := make(map[string]interface{})
+		return r.getGoogleArtifactRegistryAuth(ctx, authMap, model.ImageURI.ValueString())
 	}
 
 	// No authentication method found
