@@ -10,6 +10,7 @@ services:
       - GOOS
       - GOARCH
       - CGO_ENABLED
+    entrypoint: ["go"]
   terraform-registry-builder:
     image: ghcr.io/ikedam/terraform-registry-builder:0.2.0
     profiles: [dummy]
