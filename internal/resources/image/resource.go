@@ -76,24 +76,44 @@ func (r *ImageResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 				Computed:            true,
 				Default:             booldefault.StaticBool(false),
 			},
-			"auth": schema.ObjectAttribute{
+			"auth": schema.SingleNestedAttribute{
 				MarkdownDescription: "Authentication configuration for the container registry",
 				Optional:            true,
-				AttributeTypes: map[string]attr.Type{
-					"aws_ecr": types.ObjectType{
-						AttrTypes: map[string]attr.Type{
-							"profile": types.StringType,
+				Attributes: map[string]schema.Attribute{
+					"aws_ecr": schema.SingleNestedAttribute{
+						Optional: true,
+						Attributes: map[string]schema.Attribute{
+							"profile": schema.StringAttribute{
+								Optional:            true,
+								MarkdownDescription: "AWS profile to use for ECR authentication",
+							},
 						},
 					},
-					"google_artifact_registry": types.ObjectType{
-						AttrTypes: map[string]attr.Type{},
+					"google_artifact_registry": schema.SingleNestedAttribute{
+						Optional:            true,
+						MarkdownDescription: "Use Google Application Default Credentials for authentication",
+						Attributes:          map[string]schema.Attribute{},
 					},
-					"username_password": types.ObjectType{
-						AttrTypes: map[string]attr.Type{
-							"username":              types.StringType,
-							"password":              types.StringType,
-							"aws_secrets_manager":   types.StringType,
-							"google_secret_manager": types.StringType,
+					"username_password": schema.SingleNestedAttribute{
+						Optional: true,
+						Attributes: map[string]schema.Attribute{
+							"username": schema.StringAttribute{
+								Optional:            true,
+								MarkdownDescription: "Username for container registry authentication",
+							},
+							"password": schema.StringAttribute{
+								Optional:            true,
+								Sensitive:           true,
+								MarkdownDescription: "Password for container registry authentication",
+							},
+							"aws_secrets_manager": schema.StringAttribute{
+								Optional:            true,
+								MarkdownDescription: "ARN of AWS Secrets Manager secret containing username/password",
+							},
+							"google_secret_manager": schema.StringAttribute{
+								Optional:            true,
+								MarkdownDescription: "Name of Google Secret Manager secret containing username/password",
+							},
 						},
 					},
 				},

@@ -31,7 +31,7 @@ resource "containerregistry_image" "app" {
   # build には、 docker compose v2 互換のビルド指定を記述します。
   # See: https://docs.docker.com/reference/compose-file/build/
   # ただし、 label の指定だけは build と同レベルに存在する labels で指定を行ってください。
-  build = jsonenconde({
+  build = jsonencode({
     context    = "."
     dockerfile = "Dockerfile.app"
     additional_contexts = {
