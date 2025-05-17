@@ -2,6 +2,22 @@
   "id": "containerregistry",
   "versions": [
     {
+      "version": "0.2.5",
+      "protocols": [
+        "6.0"
+      ],
+      "platforms": [
+        {
+          "os": "linux",
+          "arch": "amd64"
+        },
+        {
+          "os": "linux",
+          "arch": "arm64"
+        }
+      ]
+    },
+    {
       "version": "0.2.4",
       "protocols": [
         "6.0"
