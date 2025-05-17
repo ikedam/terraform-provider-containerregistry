@@ -20,6 +20,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        # Use default shallow clone for the main branch
 
       - name: Get version from tag
         id: get_version
@@ -54,6 +55,8 @@ jobs:
         run: |
           git config --global user.email "actions@github.com"
           git config --global user.name "GitHub Actions"
+          # Fetch only the gh-pages branch
+          git fetch --depth=1 origin gh-pages:gh-pages
           git worktree add pages gh-pages
 
       - name: Build Terraform Provider Registry
