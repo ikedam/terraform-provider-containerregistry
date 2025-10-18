@@ -18,7 +18,7 @@ Container Registry (Docker Registry) 上のイメージの作成を行います�
 terraform {
   required_providers {
     aws = {
-      source  = "containerregistry.tf.ikedam.jp/tf/containerregistry"
+      source  = "tf-containerregistry.ikedam.jp/ikedam/containerregistry"
     }
   }
 }
