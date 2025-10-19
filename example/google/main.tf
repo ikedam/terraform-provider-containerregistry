@@ -8,7 +8,7 @@ terraform {
     }
     containerregistry = {
       source  = "tf-containerregistry.ikedam.jp/ikedam/containerregistry"
-      version = "~> 0.3.0"
+      version = "~> 0.4.0"
     }
     archive = {
       source  = "hashicorp/archive"
