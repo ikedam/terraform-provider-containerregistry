@@ -12,13 +12,19 @@ Container Registry (Docker Registry) 上のイメージの作成を行います�
 
 **ビルド指定に変更があっても再ビルドは行わないので注意してください**
 
-## containerregistry_image リソース
+## 利用例
+
+[example/](./example/)
+
+## containerregistry_compose リソース
 
 ```hcl
 terraform {
   required_providers {
     aws = {
-      source  = "tf-containerregistry.ikedam.jp/ikedam/containerregistry"
+      source = "tf-containerregistry.ikedam.jp/ikedam/containerregistry"
+      # 最新のバージョンは https://github.com/ikedam/terraform-provider-containerregistry/releases から確認してください。
+      # version = "~> 0.3.0"
     }
   }
 }
