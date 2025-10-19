@@ -1,4 +1,4 @@
-package image
+package compose
 
 import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -31,7 +31,7 @@ type UsernamePasswordModel struct {
 	GoogleSecretManager types.String `tfsdk:"google_secret_manager"`
 }
 
-type ImageResourceModel struct {
+type ComposeResourceModel struct {
 	ID           types.String `tfsdk:"id"`
 	ImageURI     types.String `tfsdk:"image_uri"`
 	Build        types.String `tfsdk:"build"`

@@ -1,4 +1,4 @@
-package image
+package compose
 
 import (
 	"context"
@@ -17,26 +17,26 @@ import (
 )
 
 // Ensure provider defined types fully satisfy framework interfaces
-var _ resource.Resource = &ImageResource{}
-var _ resource.ResourceWithImportState = &ImageResource{}
+var _ resource.Resource = &ComposeResource{}
+var _ resource.ResourceWithImportState = &ComposeResource{}
 
-// NewImageResource returns a new resource implementing the containerregistry_image resource type.
-func NewImageResource() resource.Resource {
-	return &ImageResource{}
+// NewComposeResource returns a new resource implementing the containerregistry_image resource type.
+func NewComposeResource() resource.Resource {
+	return &ComposeResource{}
 }
 
-// ImageResource defines the resource implementation.
-type ImageResource struct {
+// ComposeResource defines the resource implementation.
+type ComposeResource struct {
 	// client would be defined here if we had a client to communicate with the container registry
 }
 
 // Metadata returns the resource type name.
-func (r *ImageResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+func (r *ComposeResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_image"
 }
 
 // Schema defines the schema for the resource.
-func (r *ImageResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *ComposeResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
 		MarkdownDescription: "Container registry image resource",
@@ -127,7 +127,7 @@ func (r *ImageResource) Schema(ctx context.Context, req resource.SchemaRequest, 
 }
 
 // Configure adds the provider configured client to the resource.
-func (r *ImageResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+func (r *ComposeResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	// Prevent panic if the provider has not been configured.
 	if req.ProviderData == nil {
 		return
@@ -138,9 +138,9 @@ func (r *ImageResource) Configure(ctx context.Context, req resource.ConfigureReq
 }
 
 // Create creates the resource and sets the initial Terraform state.
-func (r *ImageResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+func (r *ComposeResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	// Get the plan and model
-	var plan ImageResourceModel
+	var plan ComposeResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -169,9 +169,9 @@ func (r *ImageResource) Create(ctx context.Context, req resource.CreateRequest, 
 }
 
 // Read refreshes the Terraform state with the latest data.
-func (r *ImageResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+func (r *ComposeResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	// Get the current state
-	var state ImageResourceModel
+	var state ComposeResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -246,9 +246,9 @@ func (r *ImageResource) Read(ctx context.Context, req resource.ReadRequest, resp
 }
 
 // Update updates the resource and sets the updated Terraform state on success.
-func (r *ImageResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+func (r *ComposeResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	// Get plan and current state
-	var plan, state ImageResourceModel
+	var plan, state ComposeResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
@@ -275,9 +275,9 @@ func (r *ImageResource) Update(ctx context.Context, req resource.UpdateRequest, 
 }
 
 // Delete deletes the resource and removes the Terraform state on success.
-func (r *ImageResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+func (r *ComposeResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	// Get current state
-	var state ImageResourceModel
+	var state ComposeResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -313,7 +313,7 @@ func (r *ImageResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 }
 
 // ImportState imports an existing resource into Terraform.
-func (r *ImageResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+func (r *ComposeResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	// Log the import operation
 	tflog.Info(ctx, "Importing container registry image", map[string]interface{}{
 		"image_uri": req.ID,
