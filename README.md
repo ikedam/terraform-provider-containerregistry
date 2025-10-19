@@ -23,7 +23,7 @@ terraform {
   }
 }
 
-resource "containerregistry_image" "app" {
+resource "containerregistry_compose" "app" {
   # 作成および push するイメージ URI を指定します。
   # タグ部分を変数にすることで、タグの変更時にイメージを再作成するなどの動作に指定できます。
   image_uri = "your.image.registry/repository:v0.0.0"
@@ -84,7 +84,7 @@ resource "containerregistry_image" "app" {
 }
 
 output "sha256_digest" {
-  value = containerregistry_image.app.sha256_digest
+  value = containerregistry_compose.app.sha256_digest
 }
 ```
 

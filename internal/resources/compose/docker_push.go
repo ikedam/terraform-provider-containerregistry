@@ -1,4 +1,4 @@
-package image
+package compose
 
 import (
 	"context"
@@ -17,7 +17,7 @@ import (
 )
 
 // pushDockerImage pushes a Docker image to the registry
-func (r *ImageResource) pushDockerImage(ctx context.Context, dockerClient *client.Client, model *ImageResourceModel) error {
+func (r *ComposeResource) pushDockerImage(ctx context.Context, dockerClient *client.Client, model *ComposeResourceModel) error {
 	tflog.Info(ctx, "Pushing Docker image to registry", map[string]interface{}{
 		"image_uri": model.ImageURI.ValueString(),
 	})
@@ -65,7 +65,7 @@ func (r *ImageResource) pushDockerImage(ctx context.Context, dockerClient *clien
 }
 
 // buildDockerImageWithCompose builds a Docker image using Docker Compose API
-func (r *ImageResource) buildDockerImageWithCompose(ctx context.Context, composeService api.Service, buildSpec map[string]interface{}, model *ImageResourceModel) error {
+func (r *ComposeResource) buildDockerImageWithCompose(ctx context.Context, composeService api.Service, buildSpec map[string]interface{}, model *ComposeResourceModel) error {
 	tflog.Info(ctx, "Building Docker image using Docker Compose API", map[string]interface{}{
 		"image_uri": model.ImageURI.ValueString(),
 	})
@@ -166,7 +166,7 @@ func (r *ImageResource) buildDockerImageWithCompose(ctx context.Context, compose
 }
 
 // buildAndPushImage builds and pushes an image based on the provided model
-func (r *ImageResource) buildAndPushImage(ctx context.Context, model *ImageResourceModel) error {
+func (r *ComposeResource) buildAndPushImage(ctx context.Context, model *ComposeResourceModel) error {
 	tflog.Debug(ctx, "Building and pushing image", map[string]interface{}{
 		"image_uri": model.ImageURI.ValueString(),
 	})

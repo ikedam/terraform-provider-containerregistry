@@ -7,7 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/ikedam/terraform-provider-containerregistry/internal/resources/image"
+	"github.com/ikedam/terraform-provider-containerregistry/internal/resources/compose"
 )
 
 // Ensure the implementation satisfies the provider.Provider interface.
@@ -67,7 +67,7 @@ func (p *ContainerRegistryProvider) Configure(ctx context.Context, req provider.
 // Resources defines the resources implemented in the provider.
 func (p *ContainerRegistryProvider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
-		image.NewImageResource,
+		compose.NewComposeResource,
 	}
 }
 

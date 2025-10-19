@@ -1,4 +1,4 @@
-package image
+package compose
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 )
 
 // parseBuildSpec parses the build specification from the model
-func (r *ImageResource) parseBuildSpec(ctx context.Context, model *ImageResourceModel) (map[string]interface{}, error) {
+func (r *ComposeResource) parseBuildSpec(ctx context.Context, model *ComposeResourceModel) (map[string]interface{}, error) {
 	// The build attribute contains a Docker Compose compatible build specification in JSON format
 	buildJSON := model.Build.ValueString()
 	if buildJSON == "" {
@@ -32,7 +32,7 @@ func (r *ImageResource) parseBuildSpec(ctx context.Context, model *ImageResource
 // これらの関数はDocker Compose APIを使用するようになったため不要になりました
 
 // extractLabels extracts labels from the model
-func (r *ImageResource) extractLabels(model *ImageResourceModel) map[string]string {
+func (r *ComposeResource) extractLabels(model *ComposeResourceModel) map[string]string {
 	labels := make(map[string]string)
 
 	// Extract labels from the model if they exist

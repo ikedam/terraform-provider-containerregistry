@@ -1,5 +1,4 @@
-// filepath: /workspaces/terraform-provider-containerregistry/internal/resources/image/docker_delete.go
-package image
+package compose
 
 import (
 	"context"
@@ -13,7 +12,7 @@ import (
 )
 
 // deleteImageFromRegistry deletes an image from a remote registry
-func (r *ImageResource) deleteImageFromRegistry(ctx context.Context, model *ImageResourceModel) error {
+func (r *ComposeResource) deleteImageFromRegistry(ctx context.Context, model *ComposeResourceModel) error {
 	tflog.Info(ctx, "Deleting image from registry", map[string]interface{}{
 		"image_uri": model.ImageURI.ValueString(),
 	})
@@ -42,7 +41,7 @@ func (r *ImageResource) deleteImageFromRegistry(ctx context.Context, model *Imag
 }
 
 // deleteFromDockerRegistry deletes an image from a generic Docker Registry using the Registry API v2
-func (r *ImageResource) deleteFromDockerRegistry(ctx context.Context, ref reference.Reference, authConfig *AuthConfig) error {
+func (r *ComposeResource) deleteFromDockerRegistry(ctx context.Context, ref reference.Reference, authConfig *AuthConfig) error {
 	// Extract registry, repository, and reference components
 	var registry, repository, tag, digest string
 

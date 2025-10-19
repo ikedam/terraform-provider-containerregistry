@@ -1,5 +1,4 @@
-// filepath: /workspaces/terraform-provider-containerregistry/internal/resources/image/docker_manifest.go
-package image
+package compose
 
 import (
 	"context"
@@ -13,7 +12,7 @@ import (
 
 // getImageInfoFromRegistry retrieves image information from the container registry using the Registry API
 // It updates the provided model with information fetched from the registry
-func (r *ImageResource) getImageInfoFromRegistry(ctx context.Context, model *ImageResourceModel) (map[string]interface{}, error) {
+func (r *ComposeResource) getImageInfoFromRegistry(ctx context.Context, model *ComposeResourceModel) (map[string]interface{}, error) {
 	// Log the operation
 	tflog.Debug(ctx, "Getting image info from registry", map[string]interface{}{
 		"image_uri": model.ImageURI.ValueString(),

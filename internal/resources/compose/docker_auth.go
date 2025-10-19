@@ -1,4 +1,4 @@
-package image
+package compose
 
 import (
 	"context"
@@ -28,7 +28,7 @@ type AuthConfig struct {
 
 // getAuthConfig returns the authentication configuration for the container registry
 // based on the authentication options provided in the model
-func (r *ImageResource) getAuthConfig(ctx context.Context, model *ImageResourceModel) (*AuthConfig, error) {
+func (r *ComposeResource) getAuthConfig(ctx context.Context, model *ComposeResourceModel) (*AuthConfig, error) {
 	// If no authentication is provided, return nil
 	if model.Auth == nil {
 		tflog.Debug(ctx, "No authentication configuration provided")
@@ -87,7 +87,7 @@ func (r *ImageResource) getAuthConfig(ctx context.Context, model *ImageResourceM
 }
 
 // getUsernamePasswordAuth extracts username and password from the auth configuration
-func (r *ImageResource) getUsernamePasswordAuth(ctx context.Context, authMap map[string]interface{}) (*AuthConfig, error) {
+func (r *ComposeResource) getUsernamePasswordAuth(ctx context.Context, authMap map[string]interface{}) (*AuthConfig, error) {
 	var username, password string
 
 	// Extract username if it exists
@@ -141,7 +141,7 @@ func (r *ImageResource) getUsernamePasswordAuth(ctx context.Context, authMap map
 }
 
 // getAWSSecretsManagerAuth retrieves authentication information from AWS Secrets Manager
-func (r *ImageResource) getAWSSecretsManagerAuth(ctx context.Context, secretArn string) (*AuthConfig, error) {
+func (r *ComposeResource) getAWSSecretsManagerAuth(ctx context.Context, secretArn string) (*AuthConfig, error) {
 	// Load AWS SDK configuration
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
@@ -177,7 +177,7 @@ func (r *ImageResource) getAWSSecretsManagerAuth(ctx context.Context, secretArn 
 }
 
 // getGoogleSecretManagerAuth retrieves authentication information from Google Secret Manager
-func (r *ImageResource) getGoogleSecretManagerAuth(ctx context.Context, secretResource string) (*AuthConfig, error) {
+func (r *ComposeResource) getGoogleSecretManagerAuth(ctx context.Context, secretResource string) (*AuthConfig, error) {
 	// Create the Secret Manager client
 	client, err := secretmanager.NewClient(ctx, option.WithUserAgent("terraform-provider-containerregistry"))
 	if err != nil {
@@ -205,7 +205,7 @@ func (r *ImageResource) getGoogleSecretManagerAuth(ctx context.Context, secretRe
 }
 
 // parseCredentialsString parses a string in the format "username:password"
-func (r *ImageResource) parseCredentialsString(ctx context.Context, credentialsString string) (*AuthConfig, error) {
+func (r *ComposeResource) parseCredentialsString(ctx context.Context, credentialsString string) (*AuthConfig, error) {
 	// Handle JSON format
 	var jsonCreds struct {
 		Username string `json:"username"`
@@ -238,7 +238,7 @@ func (r *ImageResource) parseCredentialsString(ctx context.Context, credentialsS
 }
 
 // GetEncodedAuthConfig converts the AuthConfig to a base64 encoded string for Docker API
-func (r *ImageResource) GetEncodedAuthConfig(ctx context.Context, authConfig *AuthConfig) (string, error) {
+func (r *ComposeResource) GetEncodedAuthConfig(ctx context.Context, authConfig *AuthConfig) (string, error) {
 	if authConfig == nil {
 		return "", nil
 	}
@@ -260,7 +260,7 @@ func (r *ImageResource) GetEncodedAuthConfig(ctx context.Context, authConfig *Au
 }
 
 // GetHTTPAuthHeader returns an HTTP Authorization header value for registry API requests
-func (r *ImageResource) GetHTTPAuthHeader(ctx context.Context, authConfig *AuthConfig) string {
+func (r *ComposeResource) GetHTTPAuthHeader(ctx context.Context, authConfig *AuthConfig) string {
 	if authConfig == nil {
 		return ""
 	}
@@ -271,7 +271,7 @@ func (r *ImageResource) GetHTTPAuthHeader(ctx context.Context, authConfig *AuthC
 }
 
 // getAWSECRAuth retrieves an authentication token from AWS ECR
-func (r *ImageResource) getAWSECRAuth(ctx context.Context, authMap map[string]interface{}, imageURI string) (*AuthConfig, error) {
+func (r *ComposeResource) getAWSECRAuth(ctx context.Context, authMap map[string]interface{}, imageURI string) (*AuthConfig, error) {
 	tflog.Debug(ctx, "Getting AWS ECR authentication token", map[string]interface{}{
 		"image_uri": imageURI,
 	})
@@ -343,7 +343,7 @@ func (r *ImageResource) getAWSECRAuth(ctx context.Context, authMap map[string]in
 }
 
 // getGoogleArtifactRegistryAuth retrieves an authentication token for Google Cloud Artifact Registry
-func (r *ImageResource) getGoogleArtifactRegistryAuth(ctx context.Context, authMap map[string]interface{}, imageURI string) (*AuthConfig, error) {
+func (r *ComposeResource) getGoogleArtifactRegistryAuth(ctx context.Context, authMap map[string]interface{}, imageURI string) (*AuthConfig, error) {
 	tflog.Debug(ctx, "Getting Google Cloud Artifact Registry authentication token", map[string]interface{}{
 		"image_uri": imageURI,
 	})
