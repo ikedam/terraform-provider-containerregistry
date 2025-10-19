@@ -32,14 +32,14 @@ type ComposeResource struct {
 
 // Metadata returns the resource type name.
 func (r *ComposeResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_image"
+	resp.TypeName = req.ProviderTypeName + "_compose"
 }
 
 // Schema defines the schema for the resource.
 func (r *ComposeResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "Container registry image resource",
+		MarkdownDescription: "Container registry image resource with docker compose",
 
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
