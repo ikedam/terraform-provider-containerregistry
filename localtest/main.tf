@@ -1,17 +1,17 @@
 terraform {
-  required_version = ">= 1.10.6"
+  required_version = ">= 1.10.5"
 
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = "~> 7.7.0"
-    }
-    containerregistry = {
-      source  = "tf-containerregistry.ikedam.jp/ikedam/containerregistry"
+      version = "7.7.0"
     }
     archive = {
       source  = "hashicorp/archive"
-      version = "~> 2.7.1"
+      version = "2.7.1"
+    }
+    containerregistry = {
+      source  = "tf-containerregistry.ikedam.jp/ikedam/containerregistry"
     }
   }
 }
@@ -51,7 +51,7 @@ data "archive_file" "app" {
   output_path = "${path.module}/app.zip"
 }
 
-resource "containerregistry_image" "app" {
+resource "containerregistry_compose" "app" {
   # 作成および push するイメージ URI を指定します。
   # タグ部分を変数にすることで、タグの変更時にイメージを再作成するなどの動作に指定できます。
   image_uri = "${google_artifact_registry_repository.app.registry_uri}/app:latest"
@@ -84,5 +84,11 @@ resource "containerregistry_image" "app" {
   auth = {
     # Google Cloud Artifact Registry に対する認証
     google_artifact_registry = {}
+  }
+
+  lifecycle {
+    ignore_changes = [
+      labels["com.docker.compose.image.builder"],
+    ]
   }
 }

@@ -65,7 +65,7 @@ func (r *ComposeResource) pushDockerImage(ctx context.Context, dockerClient *cli
 }
 
 // buildDockerImageWithCompose builds a Docker image using Docker Compose API
-func (r *ComposeResource) buildDockerImageWithCompose(ctx context.Context, composeService api.Service, buildSpec map[string]interface{}, model *ComposeResourceModel) error {
+func (r *ComposeResource) buildDockerImageWithCompose(ctx context.Context, composeService api.Service, buildSpec *composetypes.BuildConfig, model *ComposeResourceModel) error {
 	tflog.Info(ctx, "Building Docker image using Docker Compose API", map[string]interface{}{
 		"image_uri": model.ImageURI.ValueString(),
 	})
@@ -82,51 +82,7 @@ func (r *ComposeResource) buildDockerImageWithCompose(ctx context.Context, compo
 	service := composetypes.ServiceConfig{
 		Name:  serviceName,
 		Image: model.ImageURI.ValueString(),
-		Build: &composetypes.BuildConfig{},
-	}
-
-	// Configure the build settings from Terraform build spec
-	if contextDir, ok := buildSpec["context"].(string); ok && contextDir != "" {
-		service.Build.Context = contextDir
-		tflog.Debug(ctx, "Using build context", map[string]interface{}{
-			"context": contextDir,
-		})
-	} else {
-		service.Build.Context = "." // Default to current directory
-	}
-
-	// Set Dockerfile if specified
-	if dockerfile, ok := buildSpec["dockerfile"].(string); ok && dockerfile != "" {
-		service.Build.Dockerfile = dockerfile
-		tflog.Debug(ctx, "Using dockerfile", map[string]interface{}{
-			"dockerfile": dockerfile,
-		})
-	}
-
-	// Add build arguments if specified
-	if args, ok := buildSpec["args"].(map[string]interface{}); ok {
-		service.Build.Args = composetypes.MappingWithEquals{}
-		for key, value := range args {
-			if strValue, ok := value.(string); ok {
-				service.Build.Args[key] = &strValue
-			}
-		}
-		tflog.Debug(ctx, "Using build args", map[string]interface{}{
-			"args": args,
-		})
-	}
-
-	// Add additional build contexts if specified
-	if additionalContexts, ok := buildSpec["additional_contexts"].(map[string]interface{}); ok {
-		service.Build.AdditionalContexts = composetypes.Mapping{}
-		for name, path := range additionalContexts {
-			if strPath, ok := path.(string); ok {
-				service.Build.AdditionalContexts[name] = strPath
-			}
-		}
-		tflog.Debug(ctx, "Using additional build contexts", map[string]interface{}{
-			"additional_contexts": additionalContexts,
-		})
+		Build: buildSpec,
 	}
 
 	// Set labels from the model
