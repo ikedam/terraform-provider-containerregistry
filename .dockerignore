@@ -1,0 +1,10 @@
+/.git
+/example
+/localtest
+/.dockerignore
+/.gitignore
+/docker-compose.yaml
+/Dockerfile
+/LICENSE
+/Makefile
+/README.md
