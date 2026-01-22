@@ -31,6 +31,8 @@ services:
     environment:
       - CLOUDSDK_CORE_PROJECT
       - DOCKER_BUILDKIT=0
+      - TF_LOG
+      - TF_CLI_ARGS
     volumes:
       - ./localtest:/workspace
       - ${CLOUDSDK_CONFIG:-${APPDATA:-${HOME:-}/.config}/gcloud}:/root/.config/gcloud
