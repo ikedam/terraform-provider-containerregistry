@@ -64,8 +64,8 @@ func (r *ComposeResource) getImageInfoFromRegistry(ctx context.Context, model *C
 		return nil, fmt.Errorf("failed to get authentication configuration: %w", err)
 	}
 
-	// Create HTTP client to interact with the Registry API
-	client := &http.Client{}
+	// Create HTTP client to interact with the Registry API, using Terraform logging transport.
+	client := newHTTPLoggingClient()
 
 	// First, we need to get the manifest for the image
 	manifestURL := fmt.Sprintf("https://%s/v2/%s/manifests/%s", registry, repository, tag)

@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/distribution/reference"
-	"github.com/docker/docker/client"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
@@ -23,13 +22,6 @@ func (r *ComposeResource) deleteImageFromRegistry(ctx context.Context, model *Co
 	if err != nil {
 		return fmt.Errorf("invalid image URI format: %w", err)
 	}
-
-	// Initialize a Docker client
-	dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		return fmt.Errorf("failed to create Docker client: %w", err)
-	}
-	defer dockerClient.Close()
 
 	// Get authentication configuration
 	authConfig, err := r.getAuthConfig(ctx, model)
@@ -70,8 +62,8 @@ func (r *ComposeResource) deleteFromDockerRegistry(ctx context.Context, ref refe
 		"digest":     digest,
 	})
 
-	// Create HTTP client
-	client := &http.Client{}
+	// Create HTTP client with Terraform logging transport
+	client := newHTTPLoggingClient()
 	var url string
 
 	if digest != "" {
