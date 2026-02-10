@@ -30,7 +30,6 @@ services:
     network_mode: bridge
     environment:
       - CLOUDSDK_CORE_PROJECT
-      - DOCKER_BUILDKIT=0
       - TF_LOG
       - TF_CLI_ARGS
     volumes:
