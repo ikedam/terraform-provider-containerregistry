@@ -121,6 +121,12 @@ func (r *ComposeResource) buildDockerImageWithCompose(ctx context.Context, compo
 	return nil
 }
 
+func withLoggingHTTPClient(c *client.Client) error {
+	httpClient := c.HTTPClient()
+	httpClient.Transport = injectLoggingToTransport(httpClient.Transport)
+	return client.WithHTTPClient(httpClient)(c)
+}
+
 // buildAndPushImage builds and pushes an image based on the provided model
 func (r *ComposeResource) buildAndPushImage(ctx context.Context, model *ComposeResourceModel) error {
 	tflog.Debug(ctx, "Building and pushing image", map[string]interface{}{
@@ -154,8 +160,11 @@ func (r *ComposeResource) buildAndPushImage(ctx context.Context, model *ComposeR
 		return fmt.Errorf("failed to build Docker image: %w", err)
 	}
 
-	// Initialize a Docker client for pushing
-	dockerClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	dockerClient, err := client.NewClientWithOpts(
+		client.FromEnv,
+		client.WithAPIVersionNegotiation(),
+		withLoggingHTTPClient,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create Docker client: %w", err)
 	}

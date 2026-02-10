@@ -142,8 +142,10 @@ func (r *ComposeResource) getUsernamePasswordAuth(ctx context.Context, authMap m
 
 // getAWSSecretsManagerAuth retrieves authentication information from AWS Secrets Manager
 func (r *ComposeResource) getAWSSecretsManagerAuth(ctx context.Context, secretArn string) (*AuthConfig, error) {
+	httpClient := newHTTPLoggingClient()
+
 	// Load AWS SDK configuration
-	cfg, err := config.LoadDefaultConfig(ctx)
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithHTTPClient(httpClient))
 	if err != nil {
 		return nil, fmt.Errorf("unable to load AWS SDK config: %w", err)
 	}
@@ -178,8 +180,14 @@ func (r *ComposeResource) getAWSSecretsManagerAuth(ctx context.Context, secretAr
 
 // getGoogleSecretManagerAuth retrieves authentication information from Google Secret Manager
 func (r *ComposeResource) getGoogleSecretManagerAuth(ctx context.Context, secretResource string) (*AuthConfig, error) {
+	httpClient := newHTTPLoggingClient()
+
 	// Create the Secret Manager client
-	client, err := secretmanager.NewClient(ctx, option.WithUserAgent("terraform-provider-containerregistry"))
+	client, err := secretmanager.NewClient(
+		ctx,
+		option.WithUserAgent("terraform-provider-containerregistry"),
+		option.WithHTTPClient(httpClient),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Secret Manager client: %w", err)
 	}
@@ -275,6 +283,7 @@ func (r *ComposeResource) getAWSECRAuth(ctx context.Context, authMap map[string]
 	tflog.Debug(ctx, "Getting AWS ECR authentication token", map[string]interface{}{
 		"image_uri": imageURI,
 	})
+	httpClient := newHTTPLoggingClient()
 
 	// Get the profile name if specified
 	var profile string
@@ -298,11 +307,18 @@ func (r *ComposeResource) getAWSECRAuth(ctx context.Context, authMap map[string]
 		tflog.Debug(ctx, "Loading AWS config with profile", map[string]interface{}{
 			"profile": profile,
 		})
-		cfg, err = config.LoadDefaultConfig(ctx, config.WithSharedConfigProfile(profile))
+		cfg, err = config.LoadDefaultConfig(
+			ctx,
+			config.WithSharedConfigProfile(profile),
+			config.WithHTTPClient(httpClient),
+		)
 	} else {
 		// Use default profile
 		tflog.Debug(ctx, "Loading AWS config with default profile")
-		cfg, err = config.LoadDefaultConfig(ctx)
+		cfg, err = config.LoadDefaultConfig(
+			ctx,
+			config.WithHTTPClient(httpClient),
+		)
 	}
 
 	if err != nil {

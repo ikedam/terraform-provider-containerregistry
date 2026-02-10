@@ -139,6 +139,9 @@ func (r *ComposeResource) Configure(ctx context.Context, req resource.ConfigureR
 
 // Create creates the resource and sets the initial Terraform state.
 func (r *ComposeResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	// Initialize the HTTP logging subsystem and header masking for this request.
+	ctx = withHTTPLoggingSubsystem(ctx)
+
 	// Get the plan and model
 	var plan ComposeResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
@@ -170,6 +173,9 @@ func (r *ComposeResource) Create(ctx context.Context, req resource.CreateRequest
 
 // Read refreshes the Terraform state with the latest data.
 func (r *ComposeResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	// Initialize the HTTP logging subsystem and header masking for this request.
+	ctx = withHTTPLoggingSubsystem(ctx)
+
 	// Get the current state
 	var state ComposeResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
@@ -247,6 +253,9 @@ func (r *ComposeResource) Read(ctx context.Context, req resource.ReadRequest, re
 
 // Update updates the resource and sets the updated Terraform state on success.
 func (r *ComposeResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	// Initialize the HTTP logging subsystem and header masking for this request.
+	ctx = withHTTPLoggingSubsystem(ctx)
+
 	// Get plan and current state
 	var plan, state ComposeResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
@@ -276,6 +285,9 @@ func (r *ComposeResource) Update(ctx context.Context, req resource.UpdateRequest
 
 // Delete deletes the resource and removes the Terraform state on success.
 func (r *ComposeResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	// Initialize the HTTP logging subsystem and header masking for this request.
+	ctx = withHTTPLoggingSubsystem(ctx)
+
 	// Get current state
 	var state ComposeResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
@@ -314,6 +326,9 @@ func (r *ComposeResource) Delete(ctx context.Context, req resource.DeleteRequest
 
 // ImportState imports an existing resource into Terraform.
 func (r *ComposeResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	// Initialize the HTTP logging subsystem and header masking for this request.
+	ctx = withHTTPLoggingSubsystem(ctx)
+
 	// Log the import operation
 	tflog.Info(ctx, "Importing container registry image", map[string]interface{}{
 		"image_uri": req.ID,
