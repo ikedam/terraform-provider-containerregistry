@@ -170,28 +170,18 @@ func (r *ComposeResource) buildAndPushImage(ctx context.Context, model *ComposeR
 	// Get the image digest after pushing
 	imageInfo, err := r.getImageInfoFromRegistry(ctx, model)
 	if err != nil {
-		tflog.Warn(ctx, "Failed to get image digest after push", map[string]interface{}{
-			"image_uri": model.ImageURI.ValueString(),
-			"error":     err.Error(),
-		})
-		// Don't return error - we can still continue without the digest
-	} else {
-		// Update the model with the SHA256 digest - prioritize the manifest digest for docker pull
-		if manifestDigest, ok := imageInfo["manifest_digest"].(string); ok && manifestDigest != "" {
-			model.SHA256Digest = tfplugintypes.StringValue(manifestDigest)
-			tflog.Debug(ctx, "Updated image manifest SHA256 digest", map[string]interface{}{
-				"image_uri": model.ImageURI.ValueString(),
-				"digest":    manifestDigest,
-			})
-		} else if configDigest, ok := imageInfo["digest"].(string); ok && configDigest != "" {
-			// Fall back to config digest if manifest digest is not available
-			model.SHA256Digest = tfplugintypes.StringValue(configDigest)
-			tflog.Debug(ctx, "Updated image config SHA256 digest (fallback)", map[string]interface{}{
-				"image_uri": model.ImageURI.ValueString(),
-				"digest":    configDigest,
-			})
-		}
+		return fmt.Errorf("failed to get image digest after push: %w", err)
 	}
+	if imageInfo.ManifestDigest == "" {
+		return fmt.Errorf("failed to get image digest after push: %w", err)
+	}
+
+	// Update the model with the SHA256 digest - prioritize the manifest digest for docker pull
+	model.SHA256Digest = tfplugintypes.StringValue(imageInfo.ManifestDigest)
+	tflog.Debug(ctx, "Updated image manifest SHA256 digest", map[string]interface{}{
+		"image_uri": model.ImageURI.ValueString(),
+		"digest":    imageInfo.ManifestDigest,
+	})
 
 	return nil
 }

@@ -198,15 +198,15 @@ func (r *ComposeResource) Read(ctx context.Context, req resource.ReadRequest, re
 	}
 
 	// If image exists, update label information from the registry
-	if labels, ok := imageInfo["labels"].(map[string]string); ok && len(labels) > 0 {
+	if len(imageInfo.Labels) > 0 {
 		tflog.Debug(ctx, "Updating labels from registry", map[string]interface{}{
 			"image_uri": state.ImageURI.ValueString(),
-			"labels":    labels,
+			"labels":    imageInfo.Labels,
 		})
 
 		// Convert the map[string]string to map[string]attr.Value for Terraform
-		labelValues := make(map[string]attr.Value, len(labels))
-		for k, v := range labels {
+		labelValues := make(map[string]attr.Value, len(imageInfo.Labels))
+		for k, v := range imageInfo.Labels {
 			labelValues[k] = types.StringValue(v)
 		}
 
@@ -225,20 +225,20 @@ func (r *ComposeResource) Read(ctx context.Context, req resource.ReadRequest, re
 		})
 	}
 
-	// Update the SHA256 digest - prioritize the manifest digest which is used for docker pull
-	if manifestDigest, ok := imageInfo["manifest_digest"].(string); ok && manifestDigest != "" {
-		state.SHA256Digest = types.StringValue(manifestDigest)
+	// Update the SHA256 digest - use manifest digest which is used for docker pull
+	if imageInfo.ManifestDigest != "" {
+		state.SHA256Digest = types.StringValue(imageInfo.ManifestDigest)
 		tflog.Debug(ctx, "Updated image manifest SHA256 digest from registry", map[string]interface{}{
 			"image_uri": state.ImageURI.ValueString(),
-			"digest":    manifestDigest,
+			"digest":    imageInfo.ManifestDigest,
 		})
-	} else if configDigest, ok := imageInfo["digest"].(string); ok && configDigest != "" {
-		// Fall back to config digest if manifest digest is not available
-		state.SHA256Digest = types.StringValue(configDigest)
-		tflog.Debug(ctx, "Updated image config SHA256 digest from registry (fallback)", map[string]interface{}{
+	} else {
+		// If manifest digest is not available, this indicates a problem with the registry response
+		tflog.Warn(ctx, "No manifest digest available from registry", map[string]interface{}{
 			"image_uri": state.ImageURI.ValueString(),
-			"digest":    configDigest,
 		})
+		// Don't set SHA256Digest if manifest digest is not available
+		// This will cause Terraform to show the digest as unknown/empty
 	}
 
 	// Save the updated state
