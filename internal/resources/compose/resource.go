@@ -266,9 +266,13 @@ func (r *ComposeResource) Read(ctx context.Context, req resource.ReadRequest, re
 			"labels":    imageInfo.Labels,
 		})
 
-		// Convert the map[string]string to map[string]attr.Value for Terraform
+		// Convert the map[string]string to map[string]attr.Value for Terraform.
+		// Exclude com.docker.compose.* labels as they are added by Compose and cause unwanted diffs.
 		labelValues := make(map[string]attr.Value, len(imageInfo.Labels))
 		for k, v := range imageInfo.Labels {
+			if strings.HasPrefix(k, "com.docker.compose.") {
+				continue
+			}
 			labelValues[k] = types.StringValue(v)
 		}
 
