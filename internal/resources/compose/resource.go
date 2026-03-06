@@ -3,6 +3,7 @@ package compose
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -10,7 +11,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -75,6 +78,55 @@ func (r *ComposeResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Optional:            true,
 				Computed:            true,
 				Default:             booldefault.StaticBool(false),
+			},
+			"option": schema.SingleNestedAttribute{
+				MarkdownDescription: "Build options",
+				Optional:            true,
+				Attributes: map[string]schema.Attribute{
+					"pull": schema.BoolAttribute{
+						MarkdownDescription: "Always pull the latest image (equivalent to --pull)",
+						Optional:            true,
+						Computed:            true,
+						Default:             booldefault.StaticBool(false),
+					},
+					"no_cache": schema.BoolAttribute{
+						MarkdownDescription: "Do not use cache when building the image (equivalent to --no-cache)",
+						Optional:            true,
+						Computed:            true,
+						Default:             booldefault.StaticBool(false),
+					},
+					"progress": schema.StringAttribute{
+						MarkdownDescription: "Progress output format (equivalent to --progress)",
+						Optional:            true,
+						Computed:            true,
+						Default:             stringdefault.StaticString("auto"),
+					},
+				},
+			},
+			"buildlog": schema.SingleNestedAttribute{
+				MarkdownDescription: "Build log output configuration. By default, build output is captured and last 10 lines will be output when the build fails.",
+				Optional:            true,
+				Attributes: map[string]schema.Attribute{
+					"timestamp": schema.BoolAttribute{
+						MarkdownDescription: "Prefix each log line with a timestamp",
+						Optional:            true,
+						Computed:            true,
+						Default:             booldefault.StaticBool(true),
+					},
+					"lines": schema.Int64Attribute{
+						MarkdownDescription: "Number of trailing lines to keep in the buffer and output on failure.",
+						Optional:            true,
+						Computed:            true,
+						Default:             int64default.StaticInt64(10),
+					},
+					"log": schema.StringAttribute{
+						MarkdownDescription: "log level for streaming build output." +
+							" One of: trace, debug, info, warn, error." +
+							" Default is null (disabled)." +
+							" To see build logs during apply, set `TF_LOG_PROVIDER` or `TF_LOG` environment variables (plugin logging is off by default; see https://developer.hashicorp.com/terraform/plugin/log/managing).",
+						Optional: true,
+					},
+				},
 			},
 			"auth": schema.SingleNestedAttribute{
 				MarkdownDescription: "Authentication configuration for the container registry",
@@ -155,11 +207,15 @@ func (r *ComposeResource) Create(ctx context.Context, req resource.CreateRequest
 	})
 
 	// Build and push the image
-	err := r.buildAndPushImage(ctx, &plan)
+	lastBuildLines, err := r.buildAndPushImage(ctx, &plan)
 	if err != nil {
+		detail := fmt.Sprintf("Could not build and push image %s: %s", plan.ImageURI.ValueString(), err)
+		if len(lastBuildLines) > 0 {
+			detail += "\n\nLast build log lines:\n" + strings.Join(lastBuildLines, "\n")
+		}
 		resp.Diagnostics.AddError(
 			"Error building and pushing image",
-			fmt.Sprintf("Could not build and push image %s: %s", plan.ImageURI.ValueString(), err),
+			detail,
 		)
 		return
 	}
@@ -270,11 +326,15 @@ func (r *ComposeResource) Update(ctx context.Context, req resource.UpdateRequest
 	})
 
 	// Build and push the image
-	err := r.buildAndPushImage(ctx, &plan)
+	lastBuildLines, err := r.buildAndPushImage(ctx, &plan)
 	if err != nil {
+		detail := fmt.Sprintf("Could not build and push image %s: %s", plan.ImageURI.ValueString(), err)
+		if len(lastBuildLines) > 0 {
+			detail += "\n\nLast build log lines:\n" + strings.Join(lastBuildLines, "\n")
+		}
 		resp.Diagnostics.AddError(
 			"Error building and pushing image",
-			fmt.Sprintf("Could not build and push image %s: %s", plan.ImageURI.ValueString(), err),
+			detail,
 		)
 		return
 	}
