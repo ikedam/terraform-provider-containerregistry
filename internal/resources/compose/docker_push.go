@@ -2,6 +2,7 @@ package compose
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"github.com/docker/compose/v2/pkg/compose"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/jsonmessage"
 	tfplugintypes "github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -52,10 +54,11 @@ func (r *ComposeResource) pushDockerImage(ctx context.Context, dockerClient *cli
 	}
 	defer pushResponse.Close()
 
-	// Read the response to ensure the push completes
-	// Docker API sends progress as a JSON stream
-	if _, err := io.ReadAll(pushResponse); err != nil {
-		return fmt.Errorf("error reading push response: %w", err)
+	// Docker Registry API returns HTTP 200 even on push failure; errors are sent
+	// in the JSON stream (error/errorDetail). We must parse the stream to detect failures.
+	err = parsePushResponse(pushResponse)
+	if err != nil {
+		return fmt.Errorf("push failed: %w", err)
 	}
 
 	tflog.Info(ctx, "Successfully pushed Docker image to registry", map[string]interface{}{
@@ -63,6 +66,25 @@ func (r *ComposeResource) pushDockerImage(ctx context.Context, dockerClient *cli
 	})
 
 	return nil
+}
+
+// parsePushResponse reads the Docker push JSON stream and returns an error
+// if any line contains "error" or "errorDetail". The Registry API returns HTTP 200
+// even on failure and signals errors only in the stream body.
+func parsePushResponse(r io.Reader) error {
+	dec := json.NewDecoder(r)
+	for {
+		var jm jsonmessage.JSONMessage
+		if err := dec.Decode(&jm); err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return fmt.Errorf("failed to parse push response: %w", err)
+		}
+		if jm.Error != nil {
+			return jm.Error
+		}
+	}
 }
 
 // buildDockerImageWithCompose builds a Docker image using Docker Compose API
