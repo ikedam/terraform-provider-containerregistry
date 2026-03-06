@@ -60,7 +60,7 @@ func (r *ComposeResource) Schema(ctx context.Context, req resource.SchemaRequest
 				},
 			},
 			"build": schema.StringAttribute{
-				MarkdownDescription: "Docker compose v2 compatible build specification in JSON format",
+				MarkdownDescription: "Docker compose v5 compatible build specification in JSON format",
 				Required:            true,
 			},
 			"labels": schema.MapAttribute{

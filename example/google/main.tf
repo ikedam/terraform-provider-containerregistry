@@ -56,7 +56,7 @@ resource "containerregistry_image" "app" {
   # タグ部分を変数にすることで、タグの変更時にイメージを再作成するなどの動作に指定できます。
   image_uri = "${google_artifact_registry_repository.app.registry_uri}/app:latest"
 
-  # build には、 docker compose v2 互換のビルド指定を記述します。
+  # build には、 docker compose v5 互換のビルド指定を記述します。
   # See: https://docs.docker.com/reference/compose-file/build/
   # ただし、 label の指定だけは build と同レベルに存在する labels で指定を行ってください。
   build = jsonencode({
