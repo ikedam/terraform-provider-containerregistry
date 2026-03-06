@@ -213,7 +213,7 @@ func (r *ComposeResource) getGoogleSecretManagerAuth(ctx context.Context, secret
 }
 
 // parseCredentialsString parses a string in the format "username:password"
-func (r *ComposeResource) parseCredentialsString(ctx context.Context, credentialsString string) (*AuthConfig, error) {
+func (r *ComposeResource) parseCredentialsString(_ context.Context, credentialsString string) (*AuthConfig, error) {
 	// Handle JSON format
 	var jsonCreds struct {
 		Username string `json:"username"`
@@ -359,7 +359,7 @@ func (r *ComposeResource) getAWSECRAuth(ctx context.Context, authMap map[string]
 }
 
 // getGoogleArtifactRegistryAuth retrieves an authentication token for Google Cloud Artifact Registry
-func (r *ComposeResource) getGoogleArtifactRegistryAuth(ctx context.Context, authMap map[string]interface{}, imageURI string) (*AuthConfig, error) {
+func (r *ComposeResource) getGoogleArtifactRegistryAuth(ctx context.Context, _ map[string]interface{}, imageURI string) (*AuthConfig, error) {
 	tflog.Debug(ctx, "Getting Google Cloud Artifact Registry authentication token", map[string]interface{}{
 		"image_uri": imageURI,
 	})

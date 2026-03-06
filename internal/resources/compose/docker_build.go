@@ -19,7 +19,7 @@ import (
 // 1. Parsing JSON to map[string]any
 // 2. Performing variable interpolation (${VAR} expansion)
 // 3. Using mapstructure to decode to BuildConfig (which calls DecodeMapstructure for args)
-func (r *ComposeResource) parseBuildSpec(ctx context.Context, model *ComposeResourceModel) (*composetypes.BuildConfig, error) {
+func (r *ComposeResource) parseBuildSpec(_ context.Context, model *ComposeResourceModel) (*composetypes.BuildConfig, error) {
 	// The build attribute contains a Docker Compose compatible build specification in JSON format
 	buildJSON := model.Build.ValueString()
 	if buildJSON == "" {

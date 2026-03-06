@@ -2,6 +2,7 @@ package compose
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -65,7 +66,13 @@ func (r *ComposeResource) pushDockerImage(ctx context.Context, dockerClient *cli
 }
 
 // buildDockerImageWithCompose builds a Docker image using Docker Compose API
-func (r *ComposeResource) buildDockerImageWithCompose(ctx context.Context, composeService api.Service, buildSpec *composetypes.BuildConfig, model *ComposeResourceModel) error {
+func (r *ComposeResource) buildDockerImageWithCompose(
+	ctx context.Context,
+	composeService api.Service,
+	buildSpec *composetypes.BuildConfig,
+	model *ComposeResourceModel,
+	out io.Writer,
+) error {
 	tflog.Info(ctx, "Building Docker image using Docker Compose API", map[string]interface{}{
 		"image_uri": model.ImageURI.ValueString(),
 	})
@@ -103,9 +110,13 @@ func (r *ComposeResource) buildDockerImageWithCompose(ctx context.Context, compo
 
 	// Configure build options
 	buildOptions := api.BuildOptions{
-		Pull:     true,                  // Always pull newest version of base images
-		NoCache:  false,                 // Use cache by default
-		Services: []string{serviceName}, // Build just our service
+		Out:      out,
+		Services: []string{serviceName},
+	}
+	if model.Option != nil {
+		buildOptions.Pull = model.Option.Pull.ValueBool()
+		buildOptions.NoCache = model.Option.NoCache.ValueBool()
+		buildOptions.Progress = model.Option.Progress.ValueString()
 	}
 
 	// Execute the build
@@ -127,8 +138,33 @@ func withLoggingHTTPClient(c *client.Client) error {
 	return client.WithHTTPClient(httpClient)(c)
 }
 
-// buildAndPushImage builds and pushes an image based on the provided model
-func (r *ComposeResource) buildAndPushImage(ctx context.Context, model *ComposeResourceModel) error {
+// buildLogConfig holds buildlog block configuration with schema defaults applied.
+type buildLogConfig struct {
+	Timestamp bool
+	Lines     int
+	Log       string
+}
+
+// getBuildLogConfig returns buildlog config. Uses schema defaults when buildlog block is absent.
+func (r *ComposeResource) getBuildLogConfig(model *ComposeResourceModel) buildLogConfig {
+	cfg := buildLogConfig{
+		Timestamp: true,
+		Lines:     10,
+		Log:       "",
+	}
+	if model.BuildLog != nil {
+		cfg.Timestamp = model.BuildLog.Timestamp.ValueBool()
+		cfg.Lines = int(model.BuildLog.Lines.ValueInt64())
+		if !model.BuildLog.Log.IsNull() {
+			cfg.Log = model.BuildLog.Log.ValueString()
+		}
+	}
+	return cfg
+}
+
+// buildAndPushImage builds and pushes an image based on the provided model.
+// On build failure, it also returns the last N buffered build log lines
+func (r *ComposeResource) buildAndPushImage(ctx context.Context, model *ComposeResourceModel) ([]string, error) {
 	tflog.Debug(ctx, "Building and pushing image", map[string]interface{}{
 		"image_uri": model.ImageURI.ValueString(),
 	})
@@ -136,28 +172,42 @@ func (r *ComposeResource) buildAndPushImage(ctx context.Context, model *ComposeR
 	// Parse the build specification from JSON
 	buildSpec, err := r.parseBuildSpec(ctx, model)
 	if err != nil {
-		return fmt.Errorf("failed to parse build specification: %w", err)
-	}
-	// Initialize Docker CLI
-	dockerCli, err := command.NewDockerCli()
-	if err != nil {
-		return fmt.Errorf("failed to create Docker CLI: %w", err)
+		return nil, fmt.Errorf("failed to parse build specification: %w", err)
 	}
 
-	// Setup Docker CLI with standard streams
-	clientOpts := &flags.ClientOptions{}
-	err = dockerCli.Initialize(clientOpts, command.WithStandardStreams())
+	buildLogCfg := r.getBuildLogConfig(model)
+	capture := newBuildLogCapture(ctx, buildLogCfg.Timestamp, buildLogCfg.Lines, buildLogCfg.Log)
+	defer func() {
+		_ = capture.Close()
+		capture.Wait()
+	}()
+
+	// Initialize Docker CLI with capture streams so output does not go to Terraform stdout
+	dockerCli, err := command.NewDockerCli()
 	if err != nil {
-		return fmt.Errorf("failed to initialize Docker CLI: %w", err)
+		return nil, fmt.Errorf("failed to create Docker CLI: %w", err)
 	}
+
+	clientOpts := &flags.ClientOptions{}
+	err = dockerCli.Initialize(clientOpts,
+		command.WithOutputStream(capture.Writer()),
+		command.WithErrorStream(capture.Writer()),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize Docker CLI: %w", err)
+	}
+
+	capture.Start(ctx)
 
 	// Initialize Docker Compose service with the CLI
 	composeService := compose.NewComposeService(dockerCli)
 
 	// Build the Docker image using Docker Compose API
-	err = r.buildDockerImageWithCompose(ctx, composeService, buildSpec, model)
+	err = r.buildDockerImageWithCompose(ctx, composeService, buildSpec, model, capture.Writer())
 	if err != nil {
-		return fmt.Errorf("failed to build Docker image: %w", err)
+		_ = capture.Close()
+		capture.Wait()
+		return capture.GetLastLines(), fmt.Errorf("failed to build Docker image: %w", err)
 	}
 
 	dockerClient, err := client.NewClientWithOpts(
@@ -166,23 +216,23 @@ func (r *ComposeResource) buildAndPushImage(ctx context.Context, model *ComposeR
 		withLoggingHTTPClient,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to create Docker client: %w", err)
+		return nil, fmt.Errorf("failed to create Docker client: %w", err)
 	}
 	defer dockerClient.Close()
 
 	// Push the image to the registry
 	err = r.pushDockerImage(ctx, dockerClient, model)
 	if err != nil {
-		return fmt.Errorf("failed to push Docker image: %w", err)
+		return nil, fmt.Errorf("failed to push Docker image: %w", err)
 	}
 
 	// Get the image digest after pushing
 	imageInfo, err := r.getImageInfoFromRegistry(ctx, model)
 	if err != nil {
-		return fmt.Errorf("failed to get image digest after push: %w", err)
+		return nil, fmt.Errorf("failed to get image digest after push: %w", err)
 	}
 	if imageInfo.ManifestDigest == "" {
-		return fmt.Errorf("failed to get image digest after push: %w", err)
+		return nil, errors.New("manifest digest is empty")
 	}
 
 	// Update the model with the SHA256 digest - prioritize the manifest digest for docker pull
@@ -192,5 +242,5 @@ func (r *ComposeResource) buildAndPushImage(ctx context.Context, model *ComposeR
 		"digest":    imageInfo.ManifestDigest,
 	})
 
-	return nil
+	return nil, nil
 }
