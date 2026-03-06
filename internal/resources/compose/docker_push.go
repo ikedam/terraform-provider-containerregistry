@@ -10,8 +10,8 @@ import (
 	composetypes "github.com/compose-spec/compose-go/v2/types"
 	"github.com/docker/cli/cli/command"
 	"github.com/docker/cli/cli/flags"
-	"github.com/docker/compose/v2/pkg/api"
-	"github.com/docker/compose/v2/pkg/compose"
+	"github.com/docker/compose/v5/pkg/api"
+	"github.com/docker/compose/v5/pkg/compose"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
@@ -87,10 +87,10 @@ func parsePushResponse(r io.Reader) error {
 	}
 }
 
-// buildDockerImageWithCompose builds a Docker image using Docker Compose API
+// buildDockerImageWithCompose builds a Docker image using Docker Compose SDK
 func (r *ComposeResource) buildDockerImageWithCompose(
 	ctx context.Context,
-	composeService api.Service,
+	composeService api.Compose,
 	buildSpec *composetypes.BuildConfig,
 	model *ComposeResourceModel,
 	out io.Writer,
@@ -222,7 +222,10 @@ func (r *ComposeResource) buildAndPushImage(ctx context.Context, model *ComposeR
 	capture.Start(ctx)
 
 	// Initialize Docker Compose service with the CLI
-	composeService := compose.NewComposeService(dockerCli)
+	composeService, err := compose.NewComposeService(dockerCli)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Docker Compose service: %w", err)
+	}
 
 	// Build the Docker image using Docker Compose API
 	err = r.buildDockerImageWithCompose(ctx, composeService, buildSpec, model, capture.Writer())
