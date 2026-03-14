@@ -17,6 +17,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
+
+	"github.com/ikedam/terraform-provider-containerregistry/internal/logging"
 )
 
 // AuthConfig represents the authentication configuration for a Docker registry
@@ -142,7 +144,7 @@ func (r *ComposeResource) getUsernamePasswordAuth(ctx context.Context, authMap m
 
 // getAWSSecretsManagerAuth retrieves authentication information from AWS Secrets Manager
 func (r *ComposeResource) getAWSSecretsManagerAuth(ctx context.Context, secretArn string) (*AuthConfig, error) {
-	httpClient := newHTTPLoggingClient()
+	httpClient := logging.NewHTTPLoggingClient()
 
 	// Load AWS SDK configuration
 	cfg, err := config.LoadDefaultConfig(ctx, config.WithHTTPClient(httpClient))
@@ -180,7 +182,7 @@ func (r *ComposeResource) getAWSSecretsManagerAuth(ctx context.Context, secretAr
 
 // getGoogleSecretManagerAuth retrieves authentication information from Google Secret Manager
 func (r *ComposeResource) getGoogleSecretManagerAuth(ctx context.Context, secretResource string) (*AuthConfig, error) {
-	httpClient := newHTTPLoggingClient()
+	httpClient := logging.NewHTTPLoggingClient()
 
 	// Create the Secret Manager client
 	client, err := secretmanager.NewClient(
@@ -283,7 +285,7 @@ func (r *ComposeResource) getAWSECRAuth(ctx context.Context, authMap map[string]
 	tflog.Debug(ctx, "Getting AWS ECR authentication token", map[string]interface{}{
 		"image_uri": imageURI,
 	})
-	httpClient := newHTTPLoggingClient()
+	httpClient := logging.NewHTTPLoggingClient()
 
 	// Get the profile name if specified
 	var profile string

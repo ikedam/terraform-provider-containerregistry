@@ -21,6 +21,10 @@ provider "google" {
   region  = var.google_region
 }
 
+provider "containerregistry" {
+  buildx_install_if_missing = true
+}
+
 resource "google_project_service" "artifactregistry" {
   service = "artifactregistry.googleapis.com"
 
