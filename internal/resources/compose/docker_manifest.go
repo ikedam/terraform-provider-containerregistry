@@ -8,6 +8,8 @@ import (
 
 	"github.com/distribution/reference"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+
+	"github.com/ikedam/terraform-provider-containerregistry/internal/logging"
 )
 
 // ImageInfo represents the minimal information retrieved from the container registry
@@ -65,7 +67,7 @@ func (r *ComposeResource) getImageInfoFromRegistry(ctx context.Context, model *C
 	}
 
 	// Create HTTP client to interact with the Registry API, using Terraform logging transport.
-	client := newHTTPLoggingClient()
+	client := logging.NewHTTPLoggingClient()
 
 	// First, we need to get the manifest for the image
 	manifestURL := fmt.Sprintf("https://%s/v2/%s/manifests/%s", registry, repository, tag)

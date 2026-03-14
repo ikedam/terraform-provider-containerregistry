@@ -8,6 +8,8 @@ import (
 
 	"github.com/distribution/reference"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+
+	"github.com/ikedam/terraform-provider-containerregistry/internal/logging"
 )
 
 // deleteImageFromRegistry deletes an image from a remote registry
@@ -63,7 +65,7 @@ func (r *ComposeResource) deleteFromDockerRegistry(ctx context.Context, ref refe
 	})
 
 	// Create HTTP client with Terraform logging transport
-	client := newHTTPLoggingClient()
+	client := logging.NewHTTPLoggingClient()
 	var url string
 
 	if digest != "" {

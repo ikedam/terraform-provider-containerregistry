@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 
 	composetypes "github.com/compose-spec/compose-go/v2/types"
 	"github.com/docker/cli/cli/command"
@@ -17,6 +19,9 @@ import (
 	"github.com/docker/docker/pkg/jsonmessage"
 	tfplugintypes "github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+
+	"github.com/ikedam/terraform-provider-containerregistry/internal/buildx"
+	"github.com/ikedam/terraform-provider-containerregistry/internal/logging"
 )
 
 // pushDockerImage pushes a Docker image to the registry
@@ -99,10 +104,22 @@ func (r *ComposeResource) buildDockerImageWithCompose(
 		"image_uri": model.ImageURI.ValueString(),
 	})
 
-	// Create a minimal Docker Compose project structure
+	// Resolve build context to an absolute path. When BuildKit/compose v5 resolve
+	// relative context, using WorkingDir "." can lead to paths like "app/app" (e.g. when
+	// the image name or another component is "app"). Using absolute paths avoids that.
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+	if !filepath.IsAbs(buildSpec.Context) {
+		buildSpec.Context = filepath.Join(cwd, buildSpec.Context)
+	}
+
+	// Create a minimal Docker Compose project structure. WorkingDir is set to cwd
+	// so that any remaining path resolution in compose/buildx is unambiguous.
 	project := &composetypes.Project{
 		Name:        "dummy",                             // Using a dummy project name
-		WorkingDir:  ".",                                 // Current directory
+		WorkingDir:  cwd,                                 // Absolute path to avoid resolve bugs
 		Environment: composetypes.NewMapping([]string{}), // Empty environment
 	}
 
@@ -142,7 +159,7 @@ func (r *ComposeResource) buildDockerImageWithCompose(
 	}
 
 	// Execute the build
-	err := composeService.Build(ctx, project, buildOptions)
+	err = composeService.Build(ctx, project, buildOptions)
 	if err != nil {
 		return fmt.Errorf("docker compose build failed: %w", err)
 	}
@@ -156,7 +173,7 @@ func (r *ComposeResource) buildDockerImageWithCompose(
 
 func withLoggingHTTPClient(c *client.Client) error {
 	httpClient := c.HTTPClient()
-	httpClient.Transport = injectLoggingToTransport(httpClient.Transport)
+	httpClient.Transport = logging.InjectLoggingToTransport(httpClient.Transport)
 	return client.WithHTTPClient(httpClient)(c)
 }
 
@@ -190,6 +207,13 @@ func (r *ComposeResource) buildAndPushImage(ctx context.Context, model *ComposeR
 	tflog.Debug(ctx, "Building and pushing image", map[string]interface{}{
 		"image_uri": model.ImageURI.ValueString(),
 	})
+
+	// Install buildx plugin if provider is configured to do so and it is missing
+	if r.providerConfig != nil && r.providerConfig.BuildxInstallIfMissing {
+		if err := buildx.EnsureInstalled(ctx, r.providerConfig.BuildxVersion, logging.NewHTTPLoggingClient()); err != nil {
+			return nil, fmt.Errorf("failed to install buildx plugin: %w", err)
+		}
+	}
 
 	// Parse the build specification from JSON
 	buildSpec, err := r.parseBuildSpec(ctx, model)

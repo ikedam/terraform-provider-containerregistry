@@ -17,10 +17,14 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+
+	"github.com/ikedam/terraform-provider-containerregistry/internal/logging"
+	"github.com/ikedam/terraform-provider-containerregistry/internal/providerconfig"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces
 var _ resource.Resource = &ComposeResource{}
+var _ resource.ResourceWithConfigure = &ComposeResource{}
 var _ resource.ResourceWithImportState = &ComposeResource{}
 
 // NewComposeResource returns a new resource implementing the containerregistry_image resource type.
@@ -30,7 +34,7 @@ func NewComposeResource() resource.Resource {
 
 // ComposeResource defines the resource implementation.
 type ComposeResource struct {
-	// client would be defined here if we had a client to communicate with the container registry
+	providerConfig *providerconfig.Config
 }
 
 // Metadata returns the resource type name.
@@ -180,19 +184,18 @@ func (r *ComposeResource) Schema(ctx context.Context, req resource.SchemaRequest
 
 // Configure adds the provider configured client to the resource.
 func (r *ComposeResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
-	// Prevent panic if the provider has not been configured.
 	if req.ProviderData == nil {
 		return
 	}
-
-	// Here we would get the client from the provider if we had one
-	// client, ok := req.ProviderData.(*SomeClient)
+	if cfg, ok := req.ProviderData.(*providerconfig.Config); ok {
+		r.providerConfig = cfg
+	}
 }
 
 // Create creates the resource and sets the initial Terraform state.
 func (r *ComposeResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	// Initialize the HTTP logging subsystem and header masking for this request.
-	ctx = withHTTPLoggingSubsystem(ctx)
+	ctx = logging.WithHTTPLoggingSubsystem(ctx)
 
 	// Get the plan and model
 	var plan ComposeResourceModel
@@ -230,7 +233,7 @@ func (r *ComposeResource) Create(ctx context.Context, req resource.CreateRequest
 // Read refreshes the Terraform state with the latest data.
 func (r *ComposeResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	// Initialize the HTTP logging subsystem and header masking for this request.
-	ctx = withHTTPLoggingSubsystem(ctx)
+	ctx = logging.WithHTTPLoggingSubsystem(ctx)
 
 	// Get the current state
 	var state ComposeResourceModel
@@ -314,7 +317,7 @@ func (r *ComposeResource) Read(ctx context.Context, req resource.ReadRequest, re
 // Update updates the resource and sets the updated Terraform state on success.
 func (r *ComposeResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	// Initialize the HTTP logging subsystem and header masking for this request.
-	ctx = withHTTPLoggingSubsystem(ctx)
+	ctx = logging.WithHTTPLoggingSubsystem(ctx)
 
 	// Get plan and current state
 	var plan, state ComposeResourceModel
@@ -350,7 +353,7 @@ func (r *ComposeResource) Update(ctx context.Context, req resource.UpdateRequest
 // Delete deletes the resource and removes the Terraform state on success.
 func (r *ComposeResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	// Initialize the HTTP logging subsystem and header masking for this request.
-	ctx = withHTTPLoggingSubsystem(ctx)
+	ctx = logging.WithHTTPLoggingSubsystem(ctx)
 
 	// Get current state
 	var state ComposeResourceModel
@@ -391,7 +394,7 @@ func (r *ComposeResource) Delete(ctx context.Context, req resource.DeleteRequest
 // ImportState imports an existing resource into Terraform.
 func (r *ComposeResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	// Initialize the HTTP logging subsystem and header masking for this request.
-	ctx = withHTTPLoggingSubsystem(ctx)
+	ctx = logging.WithHTTPLoggingSubsystem(ctx)
 
 	// Log the import operation
 	tflog.Info(ctx, "Importing container registry image", map[string]interface{}{
