@@ -89,10 +89,4 @@ resource "containerregistry_compose" "app" {
     # Google Cloud Artifact Registry に対する認証
     google_artifact_registry = {}
   }
-
-  lifecycle {
-    ignore_changes = [
-      labels["com.docker.compose.image.builder"],
-    ]
-  }
 }
