@@ -27,7 +27,7 @@ var _ resource.Resource = &ComposeResource{}
 var _ resource.ResourceWithConfigure = &ComposeResource{}
 var _ resource.ResourceWithImportState = &ComposeResource{}
 
-// NewComposeResource returns a new resource implementing the containerregistry_image resource type.
+// NewComposeResource returns a new resource implementing the containerregistry_compose resource type.
 func NewComposeResource() resource.Resource {
 	return &ComposeResource{}
 }
@@ -129,48 +129,6 @@ func (r *ComposeResource) Schema(ctx context.Context, req resource.SchemaRequest
 							" Default is null (disabled)." +
 							" To see build logs during apply, set `TF_LOG_PROVIDER` or `TF_LOG` environment variables (plugin logging is off by default; see https://developer.hashicorp.com/terraform/plugin/log/managing).",
 						Optional: true,
-					},
-				},
-			},
-			"auth": schema.SingleNestedAttribute{
-				MarkdownDescription: "Authentication configuration for the container registry",
-				Optional:            true,
-				Attributes: map[string]schema.Attribute{
-					"aws_ecr": schema.SingleNestedAttribute{
-						Optional: true,
-						Attributes: map[string]schema.Attribute{
-							"profile": schema.StringAttribute{
-								Optional:            true,
-								MarkdownDescription: "AWS profile to use for ECR authentication",
-							},
-						},
-					},
-					"google_artifact_registry": schema.SingleNestedAttribute{
-						Optional:            true,
-						MarkdownDescription: "Use Google Application Default Credentials for authentication",
-						Attributes:          map[string]schema.Attribute{},
-					},
-					"username_password": schema.SingleNestedAttribute{
-						Optional: true,
-						Attributes: map[string]schema.Attribute{
-							"username": schema.StringAttribute{
-								Optional:            true,
-								MarkdownDescription: "Username for container registry authentication",
-							},
-							"password": schema.StringAttribute{
-								Optional:            true,
-								Sensitive:           true,
-								MarkdownDescription: "Password for container registry authentication",
-							},
-							"aws_secrets_manager": schema.StringAttribute{
-								Optional:            true,
-								MarkdownDescription: "ARN of AWS Secrets Manager secret containing username/password",
-							},
-							"google_secret_manager": schema.StringAttribute{
-								Optional:            true,
-								MarkdownDescription: "Name of Google Secret Manager secret containing username/password",
-							},
-						},
 					},
 				},
 			},
@@ -424,7 +382,7 @@ func (r *ComposeResource) ImportState(ctx context.Context, req resource.ImportSt
 		false,
 	)...)
 
-	// The remaining attributes like build, labels, triggers, and auth
+	// The remaining attributes like build, labels, and triggers
 	// will need to be set by the user after import
 	tflog.Info(ctx, "Successfully imported image, additional configuration required", map[string]interface{}{
 		"image_uri": req.ID,

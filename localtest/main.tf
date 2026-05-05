@@ -4,7 +4,7 @@ terraform {
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = "7.7.0"
+      version = "7.10.0"
     }
     archive = {
       source  = "hashicorp/archive"
@@ -21,8 +21,19 @@ provider "google" {
   region  = var.google_region
 }
 
+ephemeral "google_client_config" "default" {}
+
 provider "containerregistry" {
   buildx_install_if_missing = true
+
+  # Artifact Registry のホスト名は {region}-docker.pkg.dev (image_uri のドメインと一致させる)
+  # https://cloud.google.com/artifact-registry/docs/docker/authentication#token
+  registry_auth = {
+    "${var.google_region}-docker.pkg.dev" = {
+      username = "oauth2accesstoken"
+      password = ephemeral.google_client_config.default.access_token
+    }
+  }
 }
 
 resource "google_project_service" "artifactregistry" {
@@ -84,9 +95,4 @@ resource "containerregistry_compose" "app" {
   # イメージの更新時や削除時にイメージの削除を行うか。
   # デフォルトは false です。
   delete_image = false
-
-  auth = {
-    # Google Cloud Artifact Registry に対する認証
-    google_artifact_registry = {}
-  }
 }

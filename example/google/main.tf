@@ -4,7 +4,7 @@ terraform {
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = "~> 7.7.0"
+      version = "~> 7.10.0"
     }
     containerregistry = {
       source  = "tf-containerregistry.ikedam.jp/ikedam/containerregistry"
@@ -19,6 +19,18 @@ terraform {
 provider "google" {
   project = var.google_project
   region  = var.google_region
+}
+
+ephemeral "google_client_config" "default" {}
+
+provider "containerregistry" {
+  registry_auth = {
+    # https://cloud.google.com/artifact-registry/docs/docker/authentication#token
+    "${var.google_region}-docker.pkg.dev" = {
+      username = "oauth2accesstoken"
+      password = ephemeral.google_client_config.default.access_token
+    }
+  }
 }
 
 resource "google_project_service" "artifactregistry" {
@@ -51,7 +63,7 @@ data "archive_file" "app" {
   output_path = "${path.module}/app.zip"
 }
 
-resource "containerregistry_image" "app" {
+resource "containerregistry_compose" "app" {
   # 作成および push するイメージ URI を指定します。
   # タグ部分を変数にすることで、タグの変更時にイメージを再作成するなどの動作に指定できます。
   image_uri = "${google_artifact_registry_repository.app.registry_uri}/app:latest"
@@ -80,9 +92,4 @@ resource "containerregistry_image" "app" {
   # イメージの更新時や削除時にイメージの削除を行うか。
   # デフォルトは false です。
   delete_image = false
-
-  auth = {
-    # Google Cloud Artifact Registry に対する認証
-    google_artifact_registry = {}
-  }
 }

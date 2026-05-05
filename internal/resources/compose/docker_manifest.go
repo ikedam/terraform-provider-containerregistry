@@ -61,7 +61,7 @@ func (r *ComposeResource) getImageInfoFromRegistry(ctx context.Context, model *C
 	})
 
 	// Authenticate with the registry based on the authentication configuration in the model
-	authConfig, err := r.getAuthConfig(ctx, model)
+	authConfig, err := r.getAuthConfig(ctx, model.ImageURI.ValueString())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get authentication configuration: %w", err)
 	}
