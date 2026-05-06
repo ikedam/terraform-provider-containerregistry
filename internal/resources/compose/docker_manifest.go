@@ -1,13 +1,16 @@
 package compose
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/distribution/reference"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	ocidigest "github.com/opencontainers/go-digest"
 
 	"github.com/ikedam/terraform-provider-containerregistry/internal/logging"
 )
@@ -75,7 +78,45 @@ func (r *ComposeResource) getImageInfoFromRegistry(ctx context.Context, model *C
 		manifestURL = fmt.Sprintf("https://%s/v2/%s/manifests/%s", registry, repository, digest)
 	}
 
-	// Create request to get the manifest
+	// Try to get the manifest digest from HEAD first
+	var manifestDigest string
+	headReq, err := http.NewRequestWithContext(ctx, "HEAD", manifestURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create manifest HEAD request: %w", err)
+	}
+	// Add accept headers to get the manifest in the v2 format
+	headReq.Header.Add("Accept", "application/vnd.docker.distribution.manifest.v2+json")
+	headReq.Header.Add("Accept", "application/vnd.oci.image.manifest.v1+json")
+	// Support for OCI Image Index (multi-platform image)
+	headReq.Header.Add("Accept", "application/vnd.oci.image.index.v1+json")
+	if authConfig != nil {
+		authHeader := r.GetHTTPAuthHeader(ctx, authConfig)
+		if authHeader != "" {
+			headReq.Header.Add("Authorization", authHeader)
+		}
+	}
+	headResp, err := client.Do(headReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to head manifest: %w", err)
+	}
+	err = headResp.Body.Close()
+	if err != nil {
+		tflog.Warn(ctx, "Failed to close head manifest body: ignored", map[string]any{
+			"error": err.Error(),
+		})
+	}
+	if headResp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("image not found: %s", imageURI)
+	}
+	if headResp.StatusCode == http.StatusUnauthorized {
+		return nil, fmt.Errorf("authentication failed for registry: %s", registry)
+	}
+	if headResp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to head manifest, status: %d", headResp.StatusCode)
+	}
+	manifestDigest = headResp.Header.Get("Docker-Content-Digest")
+
+	// Fetch the manifest body (needed to find config digest / labels; also used as fallback to compute digest).
 	req, err := http.NewRequestWithContext(ctx, "GET", manifestURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create manifest request: %w", err)
@@ -114,6 +155,28 @@ func (r *ComposeResource) getImageInfoFromRegistry(ctx context.Context, model *C
 		return nil, fmt.Errorf("failed to get manifest, status: %d", resp.StatusCode)
 	}
 
+	// Prefer Docker-Content-Digest from GET if it exists; otherwise compute digest from the response body bytes.
+	if manifestDigest == "" {
+		manifestDigest = resp.Header.Get("Docker-Content-Digest")
+	}
+	manifestBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read manifest body: %w", err)
+	}
+	if manifestDigest == "" {
+		// Some registries (e.g. AWS ECR) do not return the Docker-Content-Digest header.
+		// In this case, we compute the digest from the response body bytes.
+		// References:
+		// * https://github.com/opencontainers/distribution-spec/blob/main/spec.md#pulling-manifests
+		//     * Docker-Content-Digest is described as "MUST"
+		// * https://github.com/distribution/distribution/blob/main/docs/content/spec/api.md
+		//     * Docker-Content-Digest is described, but its requirement is not clear.
+		manifestDigest = ocidigest.FromBytes(manifestBody).String()
+		tflog.Info(ctx, "Computed manifest digest from response body (Docker-Content-Digest is not available)", map[string]any{
+			"digest": manifestDigest,
+		})
+	}
+
 	// Parse the manifest to extract the config digest
 	var manifest struct {
 		SchemaVersion int    `json:"schemaVersion"`
@@ -141,7 +204,7 @@ func (r *ComposeResource) getImageInfoFromRegistry(ctx context.Context, model *C
 		} `json:"manifests"`
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&manifest); err != nil {
+	if err := json.NewDecoder(bytes.NewReader(manifestBody)).Decode(&manifest); err != nil {
 		return nil, fmt.Errorf("failed to decode manifest: %w", err)
 	}
 
@@ -258,10 +321,6 @@ func (r *ComposeResource) getImageInfoFromRegistry(ctx context.Context, model *C
 	if configBlob.Config.Labels != nil {
 		labels = configBlob.Config.Labels
 	}
-
-	// Get the manifest digest from the Docker-Content-Digest header
-	// This is the digest that should be used with docker pull image@sha256:digest
-	manifestDigest := resp.Header.Get("Docker-Content-Digest")
 
 	// Create the result struct with minimal information
 	imageInfo := &ImageInfo{
