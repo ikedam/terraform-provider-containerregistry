@@ -1,0 +1,23 @@
+services:
+  terraform:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      args:
+      - TERRAFORM_VERSION=1.10.5
+    profiles: [dummy]
+    network_mode: bridge
+    environment:
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - AWS_SESSION_TOKEN
+      - AWS_DEFAULT_REGION
+      - TF_LOG
+      - TF_LOG_PROVIDER
+      - TF_CLI_ARGS
+    volumes:
+      # localtest:/workspace
+      - ..:/workspace
+      # docker out of docker
+      - /var/run/docker.sock:/var/run/docker.sock
+    working_dir: /workspace/aws
