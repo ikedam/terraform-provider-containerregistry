@@ -31,7 +31,7 @@ func (r *ComposeResource) pushDockerImage(ctx context.Context, dockerClient *cli
 	})
 
 	// Get authentication configuration
-	authConfig, err := r.getAuthConfig(ctx, model)
+	authConfig, err := r.getAuthConfig(ctx, model.ImageURI.ValueString())
 	if err != nil {
 		return fmt.Errorf("failed to get authentication configuration: %w", err)
 	}

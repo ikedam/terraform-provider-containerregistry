@@ -26,7 +26,7 @@ func (r *ComposeResource) deleteImageFromRegistry(ctx context.Context, model *Co
 	}
 
 	// Get authentication configuration
-	authConfig, err := r.getAuthConfig(ctx, model)
+	authConfig, err := r.getAuthConfig(ctx, imageURI)
 	if err != nil {
 		return fmt.Errorf("failed to get authentication configuration: %w", err)
 	}

@@ -6,4 +6,13 @@ type Config struct {
 	BuildxInstallIfMissing bool
 	// BuildxVersion is the buildx version to install (e.g. "v0.12.0"). Empty means latest.
 	BuildxVersion string
+	// RegistryAuth maps registry hostname (e.g. asia-northeast1-docker.pkg.dev) to credentials.
+	// Used by resources when pushing/pulling or calling the Registry HTTP API for that host.
+	RegistryAuth map[string]RegistryAuthCredentials
+}
+
+// RegistryAuthCredentials is username/password for a single registry host.
+type RegistryAuthCredentials struct {
+	Username string
+	Password string
 }
