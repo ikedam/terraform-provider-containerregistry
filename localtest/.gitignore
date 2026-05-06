@@ -44,6 +44,6 @@ terraform.rc
 # planout
 
 # lock file doesn't work as expected with dev_overrides
-/.terraform.lock.hcl
+.terraform.lock.hcl
 
 *.zip

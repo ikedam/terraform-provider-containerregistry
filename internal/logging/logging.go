@@ -18,6 +18,7 @@ func WithHTTPLoggingSubsystem(ctx context.Context) context.Context {
 	ctx = tflog.NewSubsystem(ctx, HTTPLoggingSubsystemName)
 	ctx = tflog.SubsystemMaskFieldValuesWithFieldKeys(ctx, HTTPLoggingSubsystemName, "Authorization")
 	ctx = tflog.SubsystemMaskFieldValuesWithFieldKeys(ctx, HTTPLoggingSubsystemName, "Proxy-Authorization")
+	ctx = tflog.SubsystemMaskFieldValuesWithFieldKeys(ctx, HTTPLoggingSubsystemName, "X-Registry-Auth")
 	return ctx
 }
 

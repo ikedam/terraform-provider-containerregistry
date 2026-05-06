@@ -2,9 +2,9 @@ terraform {
   required_version = ">= 1.10.5"
 
   required_providers {
-    google = {
-      source  = "hashicorp/google"
-      version = "7.10.0"
+    aws = {
+      source  = "hashicorp/aws"
+      version = "6.22.0"
     }
     archive = {
       source  = "hashicorp/archive"
@@ -16,66 +16,65 @@ terraform {
   }
 }
 
-provider "google" {
-  project = var.google_project
-  region  = var.google_region
+provider "aws" {
+  allowed_account_ids = var.aws_account_id_list
+  region              = var.aws_region
 }
 
-ephemeral "google_client_config" "default" {}
+ephemeral "aws_ecr_authorization_token" "current" {}
 
 provider "containerregistry" {
   buildx_install_if_missing = true
 
-  # Artifact Registry のホスト名は {region}-docker.pkg.dev (image_uri のドメインと一致させる)
-  # https://cloud.google.com/artifact-registry/docs/docker/authentication#token
   registry_auth = {
-    "${var.google_region}-docker.pkg.dev" = {
-      username = "oauth2accesstoken"
-      password = ephemeral.google_client_config.default.access_token
+    trimprefix(ephemeral.aws_ecr_authorization_token.current.proxy_endpoint, "https://") = {
+      username = ephemeral.aws_ecr_authorization_token.current.user_name
+      password = ephemeral.aws_ecr_authorization_token.current.password
     }
   }
 }
 
-resource "google_project_service" "artifactregistry" {
-  service = "artifactregistry.googleapis.com"
-
-  disable_on_destroy = false
+resource "aws_ecr_repository" "app" {
+  name = var.basename
 }
 
-resource "google_artifact_registry_repository" "app" {
-  repository_id = replace(var.basename, "_", "-")
-  format        = "DOCKER"
-
-  cleanup_policies {
-    id     = "delete-untagged-images-after-1-days"
-    action = "DELETE"
-    condition {
-      tag_state  = "UNTAGGED"
-      older_than = "1d"
-    }
-  }
-
-  depends_on = [
-    google_project_service.artifactregistry,
-  ]
+resource "aws_ecr_lifecycle_policy" "app" {
+  repository = aws_ecr_repository.app.name
+  policy     = jsonencode({
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Delete untagged images"
+        selection = {
+          tagStatus   = "untagged"
+          countType   = "sinceImagePushed"
+          countNumber = 1
+          countUnit   = "days"
+        }
+        action = {
+          type = "expire"
+        }
+      },
+    ]
+  })
 }
 
 data "archive_file" "app" {
   type        = "zip"
-  source_dir  = "${path.module}/app"
-  output_path = "${path.module}/app.zip"
+  source_dir  = "${path.module}/../app"
+  output_path = "${path.module}/../app.zip"
 }
 
 resource "containerregistry_compose" "app" {
   # 作成および push するイメージ URI を指定します。
   # タグ部分を変数にすることで、タグの変更時にイメージを再作成するなどの動作に指定できます。
-  image_uri = "${google_artifact_registry_repository.app.registry_uri}/app:latest"
+  image_uri = "${aws_ecr_repository.app.repository_url}:latest"
 
   # build には、 docker compose v5 互換のビルド指定を記述します。
   # See: https://docs.docker.com/reference/compose-file/build/
   # ただし、 label の指定だけは build と同レベルに存在する labels で指定を行ってください。
   build = jsonencode({
-    context    = "${path.module}/app"
+    context    = "${path.module}/../app"
     dockerfile = "Dockerfile"
   })
 

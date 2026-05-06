@@ -1,0 +1,21 @@
+services:
+  terraform:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      args:
+      - TERRAFORM_VERSION=1.10.5
+    profiles: [dummy]
+    network_mode: bridge
+    environment:
+      - CLOUDSDK_CORE_PROJECT
+      - TF_LOG
+      - TF_LOG_PROVIDER
+      - TF_CLI_ARGS
+    volumes:
+      # localtest:/workspace
+      - ..:/workspace
+      - ${CLOUDSDK_CONFIG:-${APPDATA:-${HOME:-}/.config}/gcloud}:/root/.config/gcloud
+      # docker out of docker
+      - /var/run/docker.sock:/var/run/docker.sock
+    working_dir: /workspace/google
