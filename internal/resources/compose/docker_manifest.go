@@ -79,6 +79,7 @@ func (r *ComposeResource) getImageInfoFromRegistry(ctx context.Context, model *C
 	}
 
 	// Try to get the manifest digest from HEAD first
+	// Note: AWS ECR returns Docker-Content-Digest only for HEAD requests.
 	var manifestDigest string
 	headReq, err := http.NewRequestWithContext(ctx, "HEAD", manifestURL, nil)
 	if err != nil {
@@ -164,15 +165,8 @@ func (r *ComposeResource) getImageInfoFromRegistry(ctx context.Context, model *C
 		return nil, fmt.Errorf("failed to read manifest body: %w", err)
 	}
 	if manifestDigest == "" {
-		// Some registries (e.g. AWS ECR) do not return the Docker-Content-Digest header.
-		// In this case, we compute the digest from the response body bytes.
-		// References:
-		// * https://github.com/opencontainers/distribution-spec/blob/main/spec.md#pulling-manifests
-		//     * Docker-Content-Digest is described as "MUST"
-		// * https://github.com/distribution/distribution/blob/main/docs/content/spec/api.md
-		//     * Docker-Content-Digest is described, but its requirement is not clear.
 		manifestDigest = ocidigest.FromBytes(manifestBody).String()
-		tflog.Info(ctx, "Computed manifest digest from response body (Docker-Content-Digest is not available)", map[string]any{
+		tflog.Warn(ctx, "Computed manifest digest from response body (Docker-Content-Digest is not available)", map[string]any{
 			"digest": manifestDigest,
 		})
 	}
