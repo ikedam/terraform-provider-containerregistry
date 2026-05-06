@@ -62,8 +62,8 @@ resource "google_artifact_registry_repository" "app" {
 
 data "archive_file" "app" {
   type        = "zip"
-  source_dir  = "${path.module}/app"
-  output_path = "${path.module}/app.zip"
+  source_dir  = "${path.module}/../app"
+  output_path = "${path.module}/../app.zip"
 }
 
 resource "containerregistry_compose" "app" {
@@ -75,7 +75,7 @@ resource "containerregistry_compose" "app" {
   # See: https://docs.docker.com/reference/compose-file/build/
   # ただし、 label の指定だけは build と同レベルに存在する labels で指定を行ってください。
   build = jsonencode({
-    context    = "${path.module}/app"
+    context    = "${path.module}/../app"
     dockerfile = "Dockerfile"
   })
 
