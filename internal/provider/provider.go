@@ -30,6 +30,9 @@ type ContainerRegistryProviderModel struct {
 	BuildxInstallIfMissing types.Bool   `tfsdk:"buildx_install_if_missing"`
 	BuildxVersion          types.String `tfsdk:"buildx_version"`
 	MaxConcurrentBuilds    types.Int64  `tfsdk:"max_concurrent_builds"`
+	EphemeralBuilder       types.Bool   `tfsdk:"ephemeral_builder"`
+	BuilderDriver          types.String `tfsdk:"builder_driver"`
+	BuilderDriverOpt       types.List   `tfsdk:"builder_driver_opt"`
 	RegistryAuth           types.Map    `tfsdk:"registry_auth"`
 }
 
@@ -73,6 +76,27 @@ func (p *ContainerRegistryProvider) Schema(ctx context.Context, req provider.Sch
 					"Omit or leave unset for no limit (Terraform `-parallelism` still applies). " +
 					"Use a small value (e.g. `1` or `2`) when concurrent builds exhaust disk space.",
 				Optional: true,
+			},
+			"ephemeral_builder": schema.BoolAttribute{
+				MarkdownDescription: "When true, each image build creates a temporary buildx builder, uses it by name " +
+					"(without changing the global current builder), then removes it after the build. " +
+					"This releases BuildKit local cache accumulated across multiple builds in one apply. " +
+					"Default is false. Can be overridden per resource via `option.ephemeral_builder`.",
+				Optional: true,
+			},
+			"builder_driver": schema.StringAttribute{
+				MarkdownDescription: "Buildx driver for ephemeral builders (e.g. `docker-container`). " +
+					"When `ephemeral_builder` is true and this is unset, defaults to `docker-container` " +
+					"(required for registry `cache_to`). Ignored when ephemeral builders are disabled. " +
+					"Can be overridden per resource via `option.builder_driver`.",
+				Optional: true,
+			},
+			"builder_driver_opt": schema.ListAttribute{
+				MarkdownDescription: "Driver options passed to `docker buildx create --driver-opt` for ephemeral builders " +
+					"(e.g. `[\"network=host\"]`). Ignored when ephemeral builders are disabled. " +
+					"Can be overridden per resource via `option.builder_driver_opt`.",
+				Optional:    true,
+				ElementType: types.StringType,
 			},
 			"registry_auth": schema.MapNestedAttribute{
 				MarkdownDescription: "Per-registry Docker Registry HTTP Basic credentials. " +
@@ -152,11 +176,30 @@ func (p *ContainerRegistryProvider) Configure(ctx context.Context, req provider.
 		buildSemaphore = semaphore.NewWeighted(n)
 	}
 
+	ephemeralBuilder := false
+	if !data.EphemeralBuilder.IsNull() && !data.EphemeralBuilder.IsUnknown() {
+		ephemeralBuilder = data.EphemeralBuilder.ValueBool()
+	}
+	builderDriver := ""
+	if !data.BuilderDriver.IsNull() && !data.BuilderDriver.IsUnknown() {
+		builderDriver = data.BuilderDriver.ValueString()
+	}
+	var builderDriverOpts []string
+	if !data.BuilderDriverOpt.IsNull() && !data.BuilderDriverOpt.IsUnknown() {
+		resp.Diagnostics.Append(data.BuilderDriverOpt.ElementsAs(ctx, &builderDriverOpts, false)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
 	resp.ResourceData = &providerconfig.Config{
 		BuildxInstallIfMissing: installIfMissing,
 		BuildxVersion:          version,
 		RegistryAuth:           registryAuth,
 		BuildSemaphore:         buildSemaphore,
+		EphemeralBuilder:       ephemeralBuilder,
+		BuilderDriver:          builderDriver,
+		BuilderDriverOpts:      builderDriverOpts,
 	}
 }
 

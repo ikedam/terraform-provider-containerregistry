@@ -8,6 +8,65 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
+func boolPtr(v bool) *bool       { return &v }
+func stringPtr(v string) *string { return &v }
+
+func TestResolveEphemeralBuilder_Defaults(t *testing.T) {
+	c := &Config{}
+	got := c.ResolveEphemeralBuilder(nil)
+	if got.Enabled {
+		t.Fatal("expected ephemeral disabled by default")
+	}
+	if got.Driver != "" {
+		t.Fatalf("driver = %q, want empty when disabled", got.Driver)
+	}
+}
+
+func TestResolveEphemeralBuilder_ProviderEnabledDefaultsDriver(t *testing.T) {
+	c := &Config{EphemeralBuilder: true}
+	got := c.ResolveEphemeralBuilder(nil)
+	if !got.Enabled {
+		t.Fatal("expected ephemeral enabled")
+	}
+	if got.Driver != DefaultEphemeralBuilderDriver {
+		t.Fatalf("driver = %q, want %q", got.Driver, DefaultEphemeralBuilderDriver)
+	}
+}
+
+func TestResolveEphemeralBuilder_ResourceOverride(t *testing.T) {
+	c := &Config{
+		EphemeralBuilder:  false,
+		BuilderDriver:     "docker",
+		BuilderDriverOpts: []string{"network=host"},
+	}
+	opts := []string{"image=moby/buildkit:latest"}
+	got := c.ResolveEphemeralBuilder(&EphemeralBuilderOverride{
+		Enabled:    boolPtr(true),
+		Driver:     stringPtr("docker-container"),
+		DriverOpts: &opts,
+	})
+	if !got.Enabled {
+		t.Fatal("expected resource to enable ephemeral")
+	}
+	if got.Driver != "docker-container" {
+		t.Fatalf("driver = %q", got.Driver)
+	}
+	if len(got.DriverOpts) != 1 || got.DriverOpts[0] != "image=moby/buildkit:latest" {
+		t.Fatalf("driver opts = %#v", got.DriverOpts)
+	}
+}
+
+func TestResolveEphemeralBuilder_NilConfig(t *testing.T) {
+	var c *Config
+	got := c.ResolveEphemeralBuilder(&EphemeralBuilderOverride{Enabled: boolPtr(true)})
+	if !got.Enabled {
+		t.Fatal("expected enabled from override")
+	}
+	if got.Driver != DefaultEphemeralBuilderDriver {
+		t.Fatalf("driver = %q, want default", got.Driver)
+	}
+}
+
 func TestAcquireBuildSlot_NilConfig(t *testing.T) {
 	var c *Config
 	if err := c.AcquireBuildSlot(context.Background()); err != nil {

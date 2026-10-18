@@ -22,6 +22,7 @@ import (
 
 	"github.com/ikedam/terraform-provider-containerregistry/internal/buildx"
 	"github.com/ikedam/terraform-provider-containerregistry/internal/logging"
+	"github.com/ikedam/terraform-provider-containerregistry/internal/providerconfig"
 )
 
 // pushDockerImage pushes a Docker image to the registry
@@ -92,16 +93,20 @@ func parsePushResponse(r io.Reader) error {
 	}
 }
 
-// buildDockerImageWithCompose builds a Docker image using Docker Compose SDK
+// buildDockerImageWithCompose builds a Docker image using Docker Compose SDK.
+// builderName, when non-empty, is passed to Compose BuildOptions.Builder
+// (equivalent to `docker compose build --builder`).
 func (r *ComposeResource) buildDockerImageWithCompose(
 	ctx context.Context,
 	composeService api.Compose,
 	buildSpec *composetypes.BuildConfig,
 	model *ComposeResourceModel,
 	out io.Writer,
+	builderName string,
 ) error {
 	tflog.Info(ctx, "Building Docker image using Docker Compose API", map[string]interface{}{
 		"image_uri": model.ImageURI.ValueString(),
+		"builder":   builderName,
 	})
 
 	// Resolve build context to an absolute path. When BuildKit/compose v5 resolve
@@ -151,6 +156,7 @@ func (r *ComposeResource) buildDockerImageWithCompose(
 	buildOptions := api.BuildOptions{
 		Out:      out,
 		Services: []string{serviceName},
+		Builder:  builderName,
 	}
 	if model.Option != nil {
 		buildOptions.Pull = model.Option.Pull.ValueBool()
@@ -166,9 +172,42 @@ func (r *ComposeResource) buildDockerImageWithCompose(
 
 	tflog.Info(ctx, "Successfully built Docker image using Docker Compose API", map[string]interface{}{
 		"image_uri": model.ImageURI.ValueString(),
+		"builder":   builderName,
 	})
 
 	return nil
+}
+
+// resolveEphemeralBuilderSettings merges provider and resource option settings.
+func (r *ComposeResource) resolveEphemeralBuilderSettings(ctx context.Context, model *ComposeResourceModel) (providerconfig.ResolvedEphemeralBuilder, error) {
+	var override *providerconfig.EphemeralBuilderOverride
+	if model.Option != nil {
+		o := &providerconfig.EphemeralBuilderOverride{}
+		hasOverride := false
+		if !model.Option.EphemeralBuilder.IsNull() && !model.Option.EphemeralBuilder.IsUnknown() {
+			v := model.Option.EphemeralBuilder.ValueBool()
+			o.Enabled = &v
+			hasOverride = true
+		}
+		if !model.Option.BuilderDriver.IsNull() && !model.Option.BuilderDriver.IsUnknown() {
+			v := model.Option.BuilderDriver.ValueString()
+			o.Driver = &v
+			hasOverride = true
+		}
+		if !model.Option.BuilderDriverOpt.IsNull() && !model.Option.BuilderDriverOpt.IsUnknown() {
+			var opts []string
+			diags := model.Option.BuilderDriverOpt.ElementsAs(ctx, &opts, false)
+			if diags.HasError() {
+				return providerconfig.ResolvedEphemeralBuilder{}, fmt.Errorf("invalid option.builder_driver_opt: %v", diags)
+			}
+			o.DriverOpts = &opts
+			hasOverride = true
+		}
+		if hasOverride {
+			override = o
+		}
+	}
+	return r.providerConfig.ResolveEphemeralBuilder(override), nil
 }
 
 func withLoggingHTTPClient(c *client.Client) error {
@@ -220,6 +259,32 @@ func (r *ComposeResource) buildAndPushImage(ctx context.Context, model *ComposeR
 		}
 	}
 
+	ephemeral, err := r.resolveEphemeralBuilderSettings(ctx, model)
+	if err != nil {
+		return nil, err
+	}
+
+	var builderName string
+	if ephemeral.Enabled {
+		builderName = buildx.NewEphemeralBuilderName()
+		if err := buildx.CreateEphemeralBuilder(ctx, builderName, buildx.EphemeralBuilderConfig{
+			Driver:     ephemeral.Driver,
+			DriverOpts: ephemeral.DriverOpts,
+		}); err != nil {
+			return nil, fmt.Errorf("failed to create ephemeral buildx builder: %w", err)
+		}
+		defer func() {
+			// Use a non-cancelled context so cleanup still runs after build failures/timeouts.
+			rmCtx := context.WithoutCancel(ctx)
+			if rmErr := buildx.RemoveEphemeralBuilder(rmCtx, builderName); rmErr != nil {
+				tflog.Warn(rmCtx, "Failed to remove ephemeral buildx builder", map[string]interface{}{
+					"name":  builderName,
+					"error": rmErr.Error(),
+				})
+			}
+		}()
+	}
+
 	// Parse the build specification from JSON
 	buildSpec, err := r.parseBuildSpec(ctx, model)
 	if err != nil {
@@ -257,7 +322,7 @@ func (r *ComposeResource) buildAndPushImage(ctx context.Context, model *ComposeR
 	}
 
 	// Build the Docker image using Docker Compose API
-	err = r.buildDockerImageWithCompose(ctx, composeService, buildSpec, model, capture.Writer())
+	err = r.buildDockerImageWithCompose(ctx, composeService, buildSpec, model, capture.Writer(), builderName)
 	if err != nil {
 		_ = capture.Close()
 		capture.Wait()

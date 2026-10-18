@@ -44,6 +44,13 @@ provider "containerregistry" {
   # 並列ビルドでディスク不足になる場合は 1 や 2 など小さな値を指定してください。
   max_concurrent_builds = 2
 
+  # ビルドごとに一時的な buildx builder を作成し、終了後に破棄します。
+  # 連続ビルドでローカル BuildKit キャッシュが累積してディスク不足になる場合に有効です。
+  # registry の cache_to を使う場合は docker-container ドライバが必要です (未指定時のデフォルト)。
+  ephemeral_builder = true
+  builder_driver    = "docker-container"
+  # builder_driver_opt = ["network=host"]
+
   # プライベートレジストリー向けのユーザー名・パスワード (トークン) を指定します。
   # 詳細は後述の「認証」を参照してください。
   registry_auth = {
@@ -91,6 +98,12 @@ resource "containerregistry_compose" "app" {
   # イメージの更新時や削除時にイメージの削除を行うか。
   # デフォルトは false です。
   delete_image = false
+
+  # option で provider の ephemeral_builder / builder_driver を上書きできます。
+  # option {
+  #   ephemeral_builder = true
+  #   builder_driver    = "docker-container"
+  # }
 }
 
 output "sha256_digest" {
