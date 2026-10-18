@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
@@ -10,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/ikedam/terraform-provider-containerregistry/internal/providerconfig"
 	"github.com/ikedam/terraform-provider-containerregistry/internal/resources/compose"
+	"golang.org/x/sync/semaphore"
 )
 
 // Ensure the implementation satisfies the provider.Provider interface.
@@ -27,6 +29,7 @@ type ContainerRegistryProvider struct {
 type ContainerRegistryProviderModel struct {
 	BuildxInstallIfMissing types.Bool   `tfsdk:"buildx_install_if_missing"`
 	BuildxVersion          types.String `tfsdk:"buildx_version"`
+	MaxConcurrentBuilds    types.Int64  `tfsdk:"max_concurrent_builds"`
 	RegistryAuth           types.Map    `tfsdk:"registry_auth"`
 }
 
@@ -62,6 +65,13 @@ func (p *ContainerRegistryProvider) Schema(ctx context.Context, req provider.Sch
 			"buildx_version": schema.StringAttribute{
 				MarkdownDescription: "Buildx version to install when buildx_install_if_missing is true (e.g. `v0.12.0`). " +
 					"Empty or omit for latest. Ignored when buildx is already present.",
+				Optional: true,
+			},
+			"max_concurrent_builds": schema.Int64Attribute{
+				MarkdownDescription: "Maximum number of container image builds that may run at the same time " +
+					"across all `containerregistry_compose` resources managed by this provider. " +
+					"Omit or leave unset for no limit (Terraform `-parallelism` still applies). " +
+					"Use a small value (e.g. `1` or `2`) when concurrent builds exhaust disk space.",
 				Optional: true,
 			},
 			"registry_auth": schema.MapNestedAttribute{
@@ -129,10 +139,24 @@ func (p *ContainerRegistryProvider) Configure(ctx context.Context, req provider.
 		}
 	}
 
+	var buildSemaphore *semaphore.Weighted
+	if !data.MaxConcurrentBuilds.IsNull() && !data.MaxConcurrentBuilds.IsUnknown() {
+		n := data.MaxConcurrentBuilds.ValueInt64()
+		if n < 1 {
+			resp.Diagnostics.AddError(
+				"Invalid max_concurrent_builds",
+				fmt.Sprintf("max_concurrent_builds must be at least 1, got %d.", n),
+			)
+			return
+		}
+		buildSemaphore = semaphore.NewWeighted(n)
+	}
+
 	resp.ResourceData = &providerconfig.Config{
 		BuildxInstallIfMissing: installIfMissing,
 		BuildxVersion:          version,
 		RegistryAuth:           registryAuth,
+		BuildSemaphore:         buildSemaphore,
 	}
 }
 

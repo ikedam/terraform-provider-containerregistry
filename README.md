@@ -39,6 +39,11 @@ provider "containerregistry" {
   # デフォルトは最新のバージョンです。
   buildx_version = "v0.12.0"
 
+  # 同時に実行するイメージビルドの上限です。
+  # 未設定の場合は制限しません (Terraform の -parallelism のみが効きます)。
+  # 並列ビルドでディスク不足になる場合は 1 や 2 など小さな値を指定してください。
+  max_concurrent_builds = 2
+
   # プライベートレジストリー向けのユーザー名・パスワード (トークン) を指定します。
   # 詳細は後述の「認証」を参照してください。
   registry_auth = {
