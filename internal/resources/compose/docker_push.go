@@ -208,6 +208,11 @@ func (r *ComposeResource) buildAndPushImage(ctx context.Context, model *ComposeR
 		"image_uri": model.ImageURI.ValueString(),
 	})
 
+	if err := r.providerConfig.AcquireBuildSlot(ctx); err != nil {
+		return nil, fmt.Errorf("failed to acquire build concurrency slot: %w", err)
+	}
+	defer r.providerConfig.ReleaseBuildSlot()
+
 	// Install buildx plugin if provider is configured to do so and it is missing
 	if r.providerConfig != nil && r.providerConfig.BuildxInstallIfMissing {
 		if err := buildx.EnsureInstalled(ctx, r.providerConfig.BuildxVersion, logging.NewHTTPLoggingClient()); err != nil {
