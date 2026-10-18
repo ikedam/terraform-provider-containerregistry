@@ -105,6 +105,22 @@ func (r *ComposeResource) Schema(ctx context.Context, req resource.SchemaRequest
 						Computed:            true,
 						Default:             stringdefault.StaticString("auto"),
 					},
+					"ephemeral_builder": schema.BoolAttribute{
+						MarkdownDescription: "Override provider `ephemeral_builder`. When true, create a temporary " +
+							"buildx builder for this build and remove it afterward. When unset, the provider value is used.",
+						Optional: true,
+					},
+					"builder_driver": schema.StringAttribute{
+						MarkdownDescription: "Override provider `builder_driver` for the ephemeral builder " +
+							"(e.g. `docker-container`). When unset, the provider value (or its default) is used.",
+						Optional: true,
+					},
+					"builder_driver_opt": schema.ListAttribute{
+						MarkdownDescription: "Override provider `builder_driver_opt` for the ephemeral builder. " +
+							"When unset, the provider value is used.",
+						Optional:    true,
+						ElementType: types.StringType,
+					},
 				},
 			},
 			"buildlog": schema.SingleNestedAttribute{

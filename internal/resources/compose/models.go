@@ -5,9 +5,12 @@ import (
 )
 
 type OptionModel struct {
-	Pull     types.Bool   `tfsdk:"pull"`
-	NoCache  types.Bool   `tfsdk:"no_cache"`
-	Progress types.String `tfsdk:"progress"`
+	Pull             types.Bool   `tfsdk:"pull"`
+	NoCache          types.Bool   `tfsdk:"no_cache"`
+	Progress         types.String `tfsdk:"progress"`
+	EphemeralBuilder types.Bool   `tfsdk:"ephemeral_builder"`
+	BuilderDriver    types.String `tfsdk:"builder_driver"`
+	BuilderDriverOpt types.List   `tfsdk:"builder_driver_opt"`
 }
 
 // BuildLogModel represents build log output configuration
